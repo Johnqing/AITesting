@@ -23,7 +23,7 @@ pnpm install
 在项目根目录创建 `.env` 文件：
 
 ```env
-API_KEY=b3796c2b64c34be692cc5ff35292b5f1.6dY0OHKL5BvRHQEn
+API_KEY=xxx.xxx
 BASE_URL=https://open.bigmodel.cn/api/paas/v4
 DEFAULT_MODEL=glm-4.5
 ```
