@@ -1,4 +1,4 @@
-import { createLogger } from '../utils/logger.js';
+import { createLogger } from '../../utils/logger.js';
 import { SnapshotElement } from './types.js';
 
 const logger = createLogger('MCP.SnapshotParser');

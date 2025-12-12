@@ -1,24 +1,34 @@
 import { CaseParser } from '../parser/caseParser.js';
-import { AIClient, PlaywrightAction } from '../ai/aiClient.js';
-import { PlaywrightMCPClient } from '../mcp/playwrightClient.js';
-import { TestCase, CaseFile } from '../types/case.js';
-import { TestResult, ActionResult } from '../types/result.js';
+import { AIClient, PlaywrightAction } from '../../adapters/ai/aiClient.js';
+import { PlaywrightMCPClient } from '../../adapters/mcp/playwrightClient.js';
+import { TestCase, CaseFile } from '../../types/case.js';
+import { TestResult, ActionResult } from '../../types/result.js';
 
 export class TestRunner {
-  private caseParser: CaseParser;
+  private caseParser?: CaseParser;
   private aiClient: AIClient;
   private playwrightClient: PlaywrightMCPClient;
 
-  constructor(caseDir: string = 'case') {
-    this.caseParser = new CaseParser(caseDir);
+  constructor(caseDir?: string) {
+    // TestRunner 不再直接管理 CaseParser，由调用方传入用例
     this.aiClient = new AIClient();
     this.playwrightClient = new PlaywrightMCPClient();
+  }
+
+  /**
+   * 设置用例解析器（用于 runAll 和 runFile）
+   */
+  setCaseParser(parser: CaseParser): void {
+    this.caseParser = parser;
   }
 
   /**
    * 运行所有测试用例
    */
   async runAll(): Promise<TestResult[]> {
+    if (!this.caseParser) {
+      throw new Error('CaseParser not set. Call setCaseParser() first or use runTestCase() directly.');
+    }
     const caseFiles = await this.caseParser.parseDirectory();
     const results: TestResult[] = [];
 
@@ -44,6 +54,9 @@ export class TestRunner {
    * 运行单个测试用例文件
    */
   async runFile(filePath: string): Promise<TestResult[]> {
+    if (!this.caseParser) {
+      throw new Error('CaseParser not set. Call setCaseParser() first or use runTestCase() directly.');
+    }
     const caseFile = await this.caseParser.parseFile(filePath);
     const results: TestResult[] = [];
 
@@ -64,7 +77,7 @@ export class TestRunner {
   }
 
   /**
-   * 运行单个测试用例
+   * 运行单个测试用例（不需要连接管理，由调用方负责）
    */
   async runTestCase(testCase: TestCase, entryUrl?: string): Promise<TestResult> {
     const startTime = new Date();
@@ -90,6 +103,8 @@ export class TestRunner {
           description: `Navigate to entry URL: ${entryUrl}`
         });
       }
+
+      // 确保已连接（连接管理由调用方负责，这里只做检查）
 
       // 执行每个操作
       for (const action of actions) {

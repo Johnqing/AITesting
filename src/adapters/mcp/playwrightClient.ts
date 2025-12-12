@@ -10,7 +10,7 @@ import {
     SelectAction,
     ScreenshotAction
 } from './actions/index.js';
-import { createLogger } from '../utils/logger.js';
+import { createLogger } from '../../utils/logger.js';
 
 const logger = createLogger('MCP');
 

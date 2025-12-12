@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { TestRunner } from './runner/testRunner.js';
-import { Reporter } from './reporter/reporter.js';
-import { validateEnv } from './utils/env.js';
+import { runAllCommand, runFileCommand, runStringCommand } from './commands/runCommand.js';
 
 const program = new Command();
 
@@ -19,29 +17,11 @@ program
   .option('-o, --output-dir <dir>', 'Output directory for reports', 'reports')
   .option('-f, --format <format>', 'Report format (markdown, json, both)', 'both')
   .action(async (options) => {
-    try {
-      // 验证环境变量
-      validateEnv();
-
-      console.log('Starting test execution...');
-      console.log(`Case directory: ${options.caseDir}`);
-      console.log(`Output directory: ${options.outputDir}`);
-
-      const runner = new TestRunner(options.caseDir);
-      const results = await runner.runAll();
-
-      const reporter = new Reporter(options.outputDir);
-      const report = reporter.generateReport(results);
-
-      reporter.printSummary(report);
-      reporter.saveReport(report, options.format as 'markdown' | 'json' | 'both');
-
-      // 如果有失败的测试，退出码为1
-      process.exit(report.failed > 0 ? 1 : 0);
-    } catch (error) {
-      console.error('Error running tests:', error);
-      process.exit(1);
-    }
+    await runAllCommand({
+      caseDir: options.caseDir,
+      outputDir: options.outputDir,
+      format: options.format as 'markdown' | 'json' | 'both'
+    });
   });
 
 program
@@ -51,30 +31,25 @@ program
   .option('-o, --output-dir <dir>', 'Output directory for reports', 'reports')
   .option('-f, --format <format>', 'Report format (markdown, json, both)', 'both')
   .action(async (file, options) => {
-    try {
-      // 验证环境变量
-      validateEnv();
+    await runFileCommand(file, {
+      outputDir: options.outputDir,
+      format: options.format as 'markdown' | 'json' | 'both'
+    });
+  });
 
-      console.log('Starting test execution...');
-      console.log(`Test case file: ${file}`);
-      console.log(`Output directory: ${options.outputDir}`);
-
-      const runner = new TestRunner();
-      const results = await runner.runFile(file);
-
-      const reporter = new Reporter(options.outputDir);
-      const report = reporter.generateReport(results);
-
-      reporter.printSummary(report);
-      reporter.saveReport(report, options.format as 'markdown' | 'json' | 'both');
-
-      // 如果有失败的测试，退出码为1
-      process.exit(report.failed > 0 ? 1 : 0);
-    } catch (error) {
-      console.error('Error running test file:', error);
-      process.exit(1);
-    }
+program
+  .command('run-string')
+  .description('Run test cases from a string (markdown format)')
+  .argument('<content>', 'Test case content in markdown format')
+  .option('-u, --entry-url <url>', 'Entry URL for the test cases')
+  .option('-o, --output-dir <dir>', 'Output directory for reports', 'reports')
+  .option('-f, --format <format>', 'Report format (markdown, json, both)', 'both')
+  .action(async (content, options) => {
+    await runStringCommand(content, {
+      entryUrl: options.entryUrl,
+      outputDir: options.outputDir,
+      format: options.format as 'markdown' | 'json' | 'both'
+    });
   });
 
 program.parse();
-

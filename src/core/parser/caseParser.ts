@@ -1,9 +1,9 @@
 import matter from 'gray-matter';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { TestCase, CaseFile } from '../types/case.js';
-import { AIClient } from '../ai/aiClient.js';
-import { createLogger } from '../utils/logger.js';
+import { TestCase, CaseFile } from '../../types/case.js';
+import { AIClient } from '../../adapters/ai/aiClient.js';
+import { createLogger } from '../../utils/logger.js';
 
 const logger = createLogger('Parser');
 
@@ -23,6 +23,58 @@ export class CaseParser {
       logger.info('Using regex parsing (AI disabled)');
     }
     logger.end('constructor');
+  }
+
+  /**
+   * 解析用例字符串内容（不依赖文件系统）
+   */
+  async parseFileContent(content: string, virtualFilePath: string = 'inline-case.md'): Promise<CaseFile> {
+    const startTime = Date.now();
+    logger.start('parseFileContent', { virtualFilePath, contentLength: content.length });
+
+    try {
+      if (this.useAI) {
+        logger.info('Using AI parsing', { virtualFilePath });
+        try {
+          const result = await this.parseFileWithAI(virtualFilePath, content);
+          const duration = Date.now() - startTime;
+          logger.info('Content parsed successfully with AI', {
+            virtualFilePath,
+            testCaseCount: result.testCases.length,
+            duration: `${duration}ms`
+          });
+          logger.end('parseFileContent', { testCaseCount: result.testCases.length }, duration);
+          return result;
+        } catch (error) {
+          logger.warn('AI parsing failed, falling back to regex', error, { virtualFilePath });
+          const result = this.parseFileWithRegex(virtualFilePath, content);
+          const duration = Date.now() - startTime;
+          logger.info('Content parsed successfully with regex (fallback)', {
+            virtualFilePath,
+            testCaseCount: result.testCases.length,
+            duration: `${duration}ms`
+          });
+          logger.end('parseFileContent', { testCaseCount: result.testCases.length }, duration);
+          return result;
+        }
+      } else {
+        logger.info('Using regex parsing', { virtualFilePath });
+        const result = this.parseFileWithRegex(virtualFilePath, content);
+        const duration = Date.now() - startTime;
+        logger.info('Content parsed successfully with regex', {
+          virtualFilePath,
+          testCaseCount: result.testCases.length,
+          duration: `${duration}ms`
+        });
+        logger.end('parseFileContent', { testCaseCount: result.testCases.length }, duration);
+        return result;
+      }
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error('Failed to parse content', error, { virtualFilePath, duration: `${duration}ms` });
+      logger.end('parseFileContent', { success: false }, duration);
+      throw error;
+    }
   }
 
   /**

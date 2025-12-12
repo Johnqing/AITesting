@@ -1,7 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { BaseAction } from './base.js';
 import { ExecutionResult } from '../types.js';
-import { createLogger } from '../../utils/logger.js';
+import { createLogger } from '../../../utils/logger.js';
 import { findElementInSnapshot, parseYamlSnapshot, getAllTextElements } from '../snapshotParser.js';
 
 const logger = createLogger('MCP.Action.Click');

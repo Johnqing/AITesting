@@ -1,5 +1,5 @@
 import { TestCase } from './case.js';
-import { ExecutionResult } from '../mcp/playwrightClient.js';
+import { ExecutionResult } from '../adapters/mcp/playwrightClient.js';
 
 export interface TestResult {
   testCase: TestCase;

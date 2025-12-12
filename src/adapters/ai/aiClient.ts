@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
-import { TestCase } from '../types/case.js';
+import { TestCase } from '../../types/case.js';
 import dotenv from 'dotenv';
-import { createLogger } from '../utils/logger.js';
+import { createLogger } from '../../utils/logger.js';
 
 dotenv.config();
 

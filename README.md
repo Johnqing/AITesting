@@ -62,6 +62,8 @@ npm run build
 
 ### 命令行选项
 
+#### 运行所有测试用例
+
 ```bash
 testflow run [options]
 
@@ -69,7 +71,47 @@ Options:
   -c, --case-dir <dir>     测试用例目录 (默认: case)
   -o, --output-dir <dir>   报告输出目录 (默认: reports)
   -f, --format <format>    报告格式: markdown, json, both (默认: both)
-  -h, --help               显示帮助信息
+```
+
+#### 运行单个测试用例文件
+
+```bash
+testflow run-file <file> [options]
+
+Options:
+  -o, --output-dir <dir>   报告输出目录 (默认: reports)
+  -f, --format <format>    报告格式: markdown, json, both (默认: both)
+```
+
+#### 直接运行用例字符串（新功能）
+
+```bash
+testflow run-string "<case-content>" [options]
+
+Options:
+  -u, --entry-url <url>    测试页面的入口URL
+  -o, --output-dir <dir>   报告输出目录 (默认: reports)
+  -f, --format <format>    报告格式: markdown, json, both (默认: both)
+```
+
+示例：
+
+```bash
+# 从字符串运行测试用例
+testflow run-string "$(cat case/05-login.md)" -u "https://example.com"
+
+# 或者直接传入用例内容
+testflow run-string "# 测试模块
+
+## TC-TEST-001: 测试用例
+**功能模块**: 测试
+**优先级**: P0
+**测试类型**: 功能测试
+**测试步骤**:
+1. 导航到首页
+2. 点击登录按钮
+**预期结果**:
+- 成功跳转到登录页面"
 ```
 
 ## 测试用例格式
@@ -111,18 +153,35 @@ testflow/
 ├── case/                    # 测试用例目录
 │   └── *.md
 ├── src/
-│   ├── parser/             # Case 解析器
-│   ├── ai/                 # AI 客户端
-│   ├── mcp/                # MCP 客户端
-│   ├── runner/             # 测试执行器
+│   ├── core/               # 核心功能模块
+│   │   ├── parser/         # 用例解析器
+│   │   └── runner/         # 测试执行器
+│   ├── adapters/           # 适配器层（便于扩展其他能力）
+│   │   ├── ai/             # AI 客户端适配器
+│   │   └── mcp/            # MCP 客户端适配器
+│   ├── services/           # 服务层（封装业务逻辑）
+│   │   └── testService.ts  # 测试服务
+│   ├── commands/           # CLI 命令模块
+│   │   └── runCommand.ts   # 运行命令实现
 │   ├── reporter/           # 报告生成器
 │   ├── types/              # 类型定义
+│   ├── utils/              # 工具函数
 │   └── index.ts            # 主入口
 ├── reports/                # 测试报告输出目录
 ├── package.json
 ├── tsconfig.json
 └── README.md
 ```
+
+### 目录结构说明
+
+- **core/**: 核心功能模块，包含测试运行和解析的核心逻辑
+- **adapters/**: 适配器层，封装外部依赖（AI、MCP等），便于后续扩展其他能力
+- **services/**: 服务层，封装业务逻辑，提供统一的测试服务接口
+- **commands/**: CLI 命令模块，将命令逻辑与入口文件分离
+- **reporter/**: 报告生成模块
+- **types/**: 类型定义
+- **utils/**: 工具函数
 
 ## 工作流程
 
