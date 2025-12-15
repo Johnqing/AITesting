@@ -38,6 +38,11 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 | 测试执行 | 通过 MCP 协议执行浏览器自动化操作 | P0 |
 | 报告生成 | 生成 Markdown 和 JSON 格式的测试报告 | P0 |
 | 命令行工具 | 提供 CLI 命令行接口 | P0 |
+| Web API 服务 | 提供 RESTful API 接口，支持测试用例、用例集、报告管理 | P0 |
+| Web UI 界面 | 提供可视化界面，支持测试用例管理、用例集管理、执行和报告查看 | P0 |
+| 数据库存储 | 使用 PostgreSQL 存储测试用例、报告、用例集等数据 | P0 |
+| 测试用例管理 | 支持测试用例的增删改查，支持环境筛选（生产/预发布/测试） | P0 |
+| 测试用例集 | 支持用例集的创建、执行、执行记录查看 | P0 |
 | 字符串执行 | 支持直接运行用例字符串 | P1 |
 
 ### 3.2 功能详细说明
@@ -230,6 +235,146 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 - 统一管理连接生命周期
 - 封装复杂的业务逻辑
 - 便于后续扩展其他能力（如并行执行、重试机制等）
+
+#### 3.2.7 Web API 服务功能
+
+**功能描述**：
+提供 RESTful API 接口，支持测试用例、用例集、报告等资源的 CRUD 操作。
+
+**主要 API 接口**：
+
+1. **测试用例管理** (`/api/v1/test-cases`)
+   - `GET /api/v1/test-cases` - 获取所有测试用例
+   - `GET /api/v1/test-cases/:caseId` - 获取单个测试用例
+   - `POST /api/v1/test-cases` - 创建测试用例
+   - `PUT /api/v1/test-cases/:caseId` - 更新测试用例
+   - `DELETE /api/v1/test-cases/:caseId` - 删除测试用例
+
+2. **测试用例集管理** (`/api/v1/test-suites`)
+   - `GET /api/v1/test-suites` - 获取所有用例集
+   - `GET /api/v1/test-suites/:suiteId` - 获取单个用例集
+   - `POST /api/v1/test-suites` - 创建用例集
+   - `PUT /api/v1/test-suites/:suiteId` - 更新用例集
+   - `DELETE /api/v1/test-suites/:suiteId` - 删除用例集
+   - `POST /api/v1/test-suites/:suiteId/execute` - 执行用例集
+   - `GET /api/v1/test-suites/:suiteId/executions` - 获取用例集执行记录
+   - `GET /api/v1/executions/:executionId` - 获取执行详情
+
+3. **测试报告管理** (`/api/v1/reports`)
+   - `GET /api/v1/reports` - 获取所有测试报告
+   - `GET /api/v1/reports/:reportId` - 获取单个测试报告
+
+4. **用例解析** (`/api/v1/parse`)
+   - `POST /api/v1/parse/file` - 解析测试用例文件
+   - `POST /api/v1/parse/string` - 解析测试用例字符串
+   - `POST /api/v1/parse/directory` - 解析目录
+
+5. **测试执行** (`/api/v1/run`)
+   - `POST /api/v1/run/all` - 运行所有测试用例
+   - `POST /api/v1/run/file` - 运行单个测试用例文件
+   - `POST /api/v1/run/string` - 运行用例字符串
+
+**技术实现**：
+- 使用 Express.js 框架
+- 支持 CORS 跨域请求
+- 统一的错误处理中间件
+- 支持 JSON 和文本（Markdown）请求体
+
+#### 3.2.8 Web UI 界面功能
+
+**功能描述**：
+提供基于 Vue 3 + Element Plus 的可视化 Web 界面，支持测试用例管理、用例集管理、测试执行和报告查看。
+
+**主要页面**：
+
+1. **首页** (`/`)
+   - 系统概览和快速导航
+
+2. **测试用例管理** (`/test-cases`)
+   - 测试用例列表展示
+   - 支持按名称、环境、优先级筛选
+   - 新增、编辑、删除测试用例
+   - 测试用例字段：
+     - 用例ID（自动生成）
+     - 测试名称
+     - 环境（生产环境/预发布环境/测试环境）
+     - 功能模块
+     - 优先级（P0/P1/P2）
+     - 测试类型（功能测试/性能测试/UI测试等）
+     - 测试目的
+     - 入口URL
+     - 前置条件
+     - 测试步骤
+     - 预期结果
+
+3. **用例集管理** (`/test-suites`)
+   - 用例集列表展示
+   - 创建、编辑、删除用例集
+   - 执行用例集
+   - 查看用例集执行记录
+   - 用例集字段：
+     - 用例集ID（自动生成）
+     - 用例集名称
+     - 环境（生产环境/预发布环境/测试环境）
+     - 描述
+     - 创建人
+     - 关联的测试用例列表
+
+4. **执行详情** (`/executions/:executionId`)
+   - 显示用例集执行的详细信息
+   - 每个测试用例的执行状态
+   - 执行结果和错误信息
+
+5. **测试执行** (`/run`)
+   - 运行所有测试用例
+   - 运行单个测试用例文件
+   - 运行用例字符串
+
+6. **测试报告** (`/reports`)
+   - 查看所有测试报告列表
+   - 查看报告详情（Markdown/JSON 格式）
+
+**技术实现**：
+- Vue 3 Composition API
+- Element Plus UI 组件库
+- Vue Router 路由管理
+- Axios HTTP 客户端
+- TypeScript 类型支持
+
+#### 3.2.9 数据库存储功能
+
+**功能描述**：
+使用 PostgreSQL 数据库存储测试用例、测试报告、用例集等数据，支持数据持久化和查询。
+
+**主要数据表**：
+
+1. **test_cases** - 测试用例表
+   - 存储测试用例的基本信息和步骤
+   - 支持环境字段（system）：生产环境/预发布环境/测试环境
+
+2. **test_reports** - 测试报告表
+   - 存储测试报告的摘要信息
+
+3. **test_results** - 测试结果表
+   - 存储单个测试用例的执行结果
+
+4. **action_results** - 操作结果表
+   - 存储每个 Playwright 操作的执行结果
+
+5. **test_suites** - 测试用例集表
+   - 存储用例集的基本信息
+
+6. **test_suite_executions** - 用例集执行记录表
+   - 存储用例集的执行记录
+
+7. **test_suite_execution_results** - 用例集执行结果表
+   - 存储用例集中每个测试用例的执行结果
+
+**数据库特性**：
+- 使用 UUID 作为主键
+- 支持 JSONB 类型存储数组数据
+- 自动更新时间戳
+- 完善的索引优化查询性能
 
 ## 4. 技术架构
 
@@ -436,11 +581,13 @@ npx playwright install
 - [ ] 支持自定义操作类型
 
 ### 8.2 中期规划（3-6 个月）
-- [ ] 支持 Web UI 界面
+- [x] 支持 Web UI 界面（已完成）
 - [ ] 支持测试用例模板
 - [ ] 支持测试数据驱动
 - [ ] 支持多浏览器并行测试
 - [ ] 支持测试报告可视化
+- [ ] 支持测试用例导入导出（Excel/CSV）
+- [ ] 支持测试用例版本管理
 
 ### 8.3 长期规划（6-12 个月）
 - [ ] 支持移动端测试（Appium）
@@ -482,7 +629,19 @@ npx playwright install
 
 ---
 
-**文档版本**：v1.0  
-**最后更新**：2024-12-12  
+**文档版本**：v1.1  
+**最后更新**：2024-12-15  
 **维护者**：TestFlow 开发团队
+
+## 11. 更新日志
+
+### v1.1 (2024-12-15)
+- ✅ 新增 Web API 服务功能
+- ✅ 新增 Web UI 界面功能
+- ✅ 新增数据库存储功能
+- ✅ 新增测试用例管理功能（CRUD）
+- ✅ 新增测试用例集功能（创建、执行、记录查看）
+- ✅ 新增环境字段支持（生产环境/预发布环境/测试环境）
+- ✅ 优化用例集执行逻辑（相同URL不重复打开）
+- ✅ 修复数据库参数类型错误
 
