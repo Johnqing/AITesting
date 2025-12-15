@@ -9,7 +9,7 @@ export interface TestCase {
   expectedResults: string[];
   entryUrl?: string;
   // 新增字段
-  system?: string;        // 测试系统
+  system?: string;        // 环境（生产环境、预发布环境、测试环境）
   testObjective?: string; // 测试目的
 }
 

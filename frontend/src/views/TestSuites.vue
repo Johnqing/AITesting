@@ -15,7 +15,7 @@
       <el-table :data="testSuites" v-loading="loading" style="width: 100%">
         <el-table-column prop="suiteId" label="用例集ID" width="150" />
         <el-table-column prop="name" label="用例集名称" min-width="200" />
-        <el-table-column prop="system" label="测试系统" width="120" />
+        <el-table-column prop="system" label="环境" width="120" />
         <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
         <el-table-column label="用例数量" width="100">
           <template #default="{ row }">
@@ -60,8 +60,12 @@
         </el-row>
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="测试系统" prop="system">
-              <el-input v-model="formData.system" placeholder="请输入测试系统" />
+            <el-form-item label="环境" prop="system">
+              <el-select v-model="formData.system" placeholder="请选择环境" style="width: 100%">
+                <el-option label="生产环境" value="生产环境" />
+                <el-option label="预发布环境" value="预发布环境" />
+                <el-option label="测试环境" value="测试环境" />
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">

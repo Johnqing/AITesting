@@ -77,8 +77,11 @@ export class TestRunner {
 
   /**
    * 运行单个测试用例（不需要连接管理，由调用方负责）
+   * @param testCase 测试用例
+   * @param entryUrl 入口URL
+   * @param currentUrl 当前已打开的URL（如果与entryUrl相同，则跳过导航）
    */
-  async runTestCase(testCase: TestCase, entryUrl?: string): Promise<TestResult> {
+  async runTestCase(testCase: TestCase, entryUrl?: string, currentUrl?: string): Promise<TestResult> {
     const startTime = new Date();
     const actionResults: ActionResult[] = [];
 
@@ -95,21 +98,35 @@ export class TestRunner {
       }
 
       // 如果有入口URL，确保第一个操作是导航到正确的URL
+      // 但如果当前URL与入口URL相同，则跳过导航操作
       if (entryUrl && actions.length > 0) {
-        if (actions[0].type === 'navigate') {
-          // 如果第一个操作已经是导航，但URL不匹配entryUrl，则替换它
-          if (actions[0].url !== entryUrl) {
-            console.log(`Replacing navigate URL from "${actions[0].url}" to "${entryUrl}"`);
-            actions[0].url = entryUrl;
-            actions[0].description = `Navigate to entry URL: ${entryUrl}`;
+        // 检查是否需要导航（当前URL与入口URL不同）
+        const needNavigate = currentUrl !== entryUrl;
+
+        if (needNavigate) {
+          if (actions[0].type === 'navigate') {
+            // 如果第一个操作已经是导航，但URL不匹配entryUrl，则替换它
+            if (actions[0].url !== entryUrl) {
+              console.log(`Replacing navigate URL from "${actions[0].url}" to "${entryUrl}"`);
+              actions[0].url = entryUrl;
+              actions[0].description = `Navigate to entry URL: ${entryUrl}`;
+            }
+          } else {
+            // 如果第一个操作不是导航，则在前面添加导航操作
+            actions.unshift({
+              type: 'navigate',
+              url: entryUrl,
+              description: `Navigate to entry URL: ${entryUrl}`
+            });
           }
         } else {
-          // 如果第一个操作不是导航，则在前面添加导航操作
-          actions.unshift({
-            type: 'navigate',
-            url: entryUrl,
-            description: `Navigate to entry URL: ${entryUrl}`
-          });
+          // 当前URL与入口URL相同，跳过导航操作
+          console.log(`Skipping navigation - already on URL: ${entryUrl}`);
+          // 如果第一个操作是导航且URL匹配，移除它
+          if (actions[0].type === 'navigate' && actions[0].url === entryUrl) {
+            actions.shift();
+            console.log(`Removed redundant navigate action`);
+          }
         }
       }
 

@@ -227,59 +227,79 @@ async function executeTestSuiteAsync(suiteId: string, executionId: string): Prom
     const { TestService } = await import('../testService.js');
 
     const testService = new TestService();
+    
+    // 连接 playwright 客户端（复用连接，避免重复连接）
+    await testService.getPlaywrightClient().connect();
+    
+    // 跟踪当前打开的URL，避免重复导航
+    let currentUrl: string | undefined;
 
-    // 依次执行每个测试用例
-    for (const testCase of validTestCases) {
-      if (!testCase.id) continue;
+    try {
+      // 依次执行每个测试用例
+      for (const testCase of validTestCases) {
+        if (!testCase.id) continue;
 
-      try {
-        // 更新状态为执行中
-        await testSuiteService.updateExecutionResult(
-          executionId,
-          testCase.id,
-          'running'
-        );
+        try {
+          // 更新状态为执行中
+          await testSuiteService.updateExecutionResult(
+            executionId,
+            testCase.id,
+            'running'
+          );
 
-        // 执行测试用例
-        const testResult = await testService.runTestCase(testCase, testCase.entryUrl);
+          // 执行测试用例，传递当前URL以避免重复导航
+          const testResult = await testService.getRunner().runTestCase(
+            testCase,
+            testCase.entryUrl,
+            currentUrl
+          );
+          
+          // 更新当前URL（如果测试用例有入口URL）
+          if (testCase.entryUrl) {
+            currentUrl = testCase.entryUrl;
+          }
 
-        // 保存测试结果到数据库，获取报告ID
-        const { testReportService } = await import('../../db/index.js');
-        const { Reporter } = await import('../../reporter/reporter.js');
-        const reporter = new Reporter();
-        const report = reporter.generateReport([testResult]);
-        const reportId = await testReportService.createTestReport(report);
+          // 保存测试结果到数据库，获取报告ID
+          const { testReportService } = await import('../../db/index.js');
+          const { Reporter } = await import('../../reporter/reporter.js');
+          const reporter = new Reporter();
+          const report = reporter.generateReport([testResult]);
+          const reportId = await testReportService.createTestReport(report);
 
-        // 查询对应的 test_result UUID ID（test_suite_execution_results 需要的是 test_results.id，不是 report_id）
-        const { queryOne } = await import('../../db/config.js');
-        const testResultRow = await queryOne<{ id: string }>(
-          `SELECT tr.id 
-           FROM test_results tr
-           JOIN test_reports trp ON tr.report_id = trp.id
-           JOIN test_cases tc ON tr.test_case_id = tc.id
-           WHERE trp.report_id = $1 AND tc.case_id = $2
-           LIMIT 1`,
-          [reportId, testCase.id]
-        );
+          // 查询对应的 test_result UUID ID（test_suite_execution_results 需要的是 test_results.id，不是 report_id）
+          const { queryOne } = await import('../../db/config.js');
+          const testResultRow = await queryOne<{ id: string }>(
+            `SELECT tr.id 
+             FROM test_results tr
+             JOIN test_reports trp ON tr.report_id = trp.id
+             JOIN test_cases tc ON tr.test_case_id = tc.id
+             WHERE trp.report_id = $1 AND tc.case_id = $2
+             LIMIT 1`,
+            [reportId, testCase.id]
+          );
 
-        // 更新执行结果
-        await testSuiteService.updateExecutionResult(
-          executionId,
-          testCase.id,
-          testResult.success ? 'success' : 'failed',
-          testResultRow?.id,
-          testResult.error
-        );
-      } catch (error: any) {
-        // 更新为失败状态
-        await testSuiteService.updateExecutionResult(
-          executionId,
-          testCase.id,
-          'failed',
-          undefined,
-          error.message || '执行失败'
-        );
+          // 更新执行结果
+          await testSuiteService.updateExecutionResult(
+            executionId,
+            testCase.id,
+            testResult.success ? 'success' : 'failed',
+            testResultRow?.id,
+            testResult.error
+          );
+        } catch (error: any) {
+          // 更新为失败状态
+          await testSuiteService.updateExecutionResult(
+            executionId,
+            testCase.id,
+            'failed',
+            undefined,
+            error.message || '执行失败'
+          );
+        }
       }
+    } finally {
+      // 断开 playwright 客户端连接
+      await testService.getPlaywrightClient().disconnect();
     }
   } catch (error) {
     console.error('执行用例集异常:', error);

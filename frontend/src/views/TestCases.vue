@@ -16,8 +16,12 @@
         <el-form-item label="测试名称">
           <el-input v-model="searchForm.title" placeholder="请输入测试名称" clearable />
         </el-form-item>
-        <el-form-item label="测试系统">
-          <el-input v-model="searchForm.system" placeholder="请输入测试系统" clearable />
+        <el-form-item label="环境">
+          <el-select v-model="searchForm.system" placeholder="请选择环境" clearable>
+            <el-option label="生产环境" value="生产环境" />
+            <el-option label="预发布环境" value="预发布环境" />
+            <el-option label="测试环境" value="测试环境" />
+          </el-select>
         </el-form-item>
         <el-form-item label="优先级">
           <el-select v-model="searchForm.priority" placeholder="请选择优先级" clearable>
@@ -36,7 +40,7 @@
       <el-table :data="testCases" v-loading="loading" style="width: 100%">
         <el-table-column prop="id" label="用例ID" width="150" />
         <el-table-column prop="title" label="测试名称" min-width="200" />
-        <el-table-column prop="system" label="测试系统" width="120" />
+        <el-table-column prop="system" label="环境" width="120" />
         <el-table-column prop="module" label="功能模块" width="120" />
         <el-table-column prop="priority" label="优先级" width="100">
           <template #default="{ row }">
@@ -92,8 +96,12 @@
         </el-row>
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="测试系统" prop="system">
-              <el-input v-model="formData.system" placeholder="请输入测试系统" />
+            <el-form-item label="环境" prop="system">
+              <el-select v-model="formData.system" placeholder="请选择环境" style="width: 100%">
+                <el-option label="生产环境" value="生产环境" />
+                <el-option label="预发布环境" value="预发布环境" />
+                <el-option label="测试环境" value="测试环境" />
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -252,7 +260,7 @@ const loadTestCases = async () => {
       }
       if (searchForm.value.system) {
         data = data.filter((item: any) =>
-          item.system?.includes(searchForm.value.system)
+          item.system === searchForm.value.system
         )
       }
       if (searchForm.value.priority) {

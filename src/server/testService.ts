@@ -22,6 +22,20 @@ export class TestService {
   }
 
   /**
+   * 获取 Playwright 客户端（用于复用连接）
+   */
+  getPlaywrightClient(): PlaywrightMCPClient {
+    return this.playwrightClient;
+  }
+
+  /**
+   * 获取 TestRunner 实例（用于直接调用 runTestCase，避免重复连接）
+   */
+  getRunner(): TestRunner {
+    return this.runner;
+  }
+
+  /**
    * 运行所有测试用例
    */
   async runAll(): Promise<TestResult[]> {
@@ -47,11 +61,14 @@ export class TestService {
 
   /**
    * 运行单个测试用例
+   * @param testCase 测试用例
+   * @param entryUrl 入口URL
+   * @param currentUrl 当前已打开的URL（如果与entryUrl相同，则跳过导航）
    */
-  async runTestCase(testCase: TestCase, entryUrl?: string): Promise<TestResult> {
+  async runTestCase(testCase: TestCase, entryUrl?: string, currentUrl?: string): Promise<TestResult> {
     await this.playwrightClient.connect();
     try {
-      return await this.runner.runTestCase(testCase, entryUrl);
+      return await this.runner.runTestCase(testCase, entryUrl, currentUrl);
     } finally {
       await this.playwrightClient.disconnect();
     }
@@ -71,13 +88,24 @@ export class TestService {
     try {
       const results: TestResult[] = [];
       
+      // 跟踪当前打开的URL，避免重复导航
+      let currentUrl: string | undefined;
+      const baseUrl = entryUrl || caseFile.entryUrl;
+      
       // 运行所有用例
       for (const testCase of caseFile.testCases) {
+        const testCaseUrl = testCase.entryUrl || baseUrl;
         const result = await this.runner.runTestCase(
           testCase,
-          entryUrl || caseFile.entryUrl
+          testCaseUrl,
+          currentUrl
         );
         results.push(result);
+        
+        // 更新当前URL
+        if (testCaseUrl) {
+          currentUrl = testCaseUrl;
+        }
       }
       
       return results;
