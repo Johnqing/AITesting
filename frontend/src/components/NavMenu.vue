@@ -22,10 +22,6 @@
       <el-icon><Document /></el-icon>
       <span>测试报告</span>
     </el-menu-item>
-    <el-menu-item index="/parse">
-      <el-icon><Setting /></el-icon>
-      <span>用例解析</span>
-    </el-menu-item>
     <el-menu-item index="/run">
       <el-icon><VideoPlay /></el-icon>
       <span>测试执行</span>
@@ -36,7 +32,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { HomeFilled, DocumentCopy, VideoPlay, Document, Folder, Setting } from '@element-plus/icons-vue'
+import { HomeFilled, DocumentCopy, VideoPlay, Document, Folder } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const activeIndex = computed(() => {

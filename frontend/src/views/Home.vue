@@ -34,22 +34,13 @@
                     <p>管理用例集，支持批量执行</p>
                 </el-card>
             </el-col>
-            <el-col :xs="24" :sm="12" :md="6">
+            <el-col :xs="24" :sm="12" :md="8">
                 <el-card class="feature-card" shadow="hover" @click="$router.push('/reports')">
                     <el-icon :size="40" color="#E6A23C">
                         <Document />
                     </el-icon>
                     <h3>测试报告</h3>
                     <p>查看和管理测试执行报告</p>
-                </el-card>
-            </el-col>
-            <el-col :xs="24" :sm="12" :md="6">
-                <el-card class="feature-card" shadow="hover" @click="$router.push('/parse')">
-                    <el-icon :size="40" color="#F56C6C">
-                        <Setting />
-                    </el-icon>
-                    <h3>用例解析</h3>
-                    <p>解析 Markdown 格式的测试用例文件</p>
                 </el-card>
             </el-col>
         </el-row>
@@ -69,7 +60,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Document, DocumentCopy, VideoPlay, Setting, Folder } from '@element-plus/icons-vue'
+import { Document, DocumentCopy, Folder } from '@element-plus/icons-vue'
 import { getApiInfo } from '@/api'
 
 const apiInfo = ref<any>(null)

@@ -253,24 +253,62 @@ export class TestSuiteService {
 
       // 更新执行结果
       const now = new Date();
-      await client.query(
-        `UPDATE test_suite_execution_results
+      
+      // 根据状态构建不同的 SQL 和参数
+      let updateSql: string;
+      let params: any[];
+      
+      if (status === 'running') {
+        updateSql = `UPDATE test_suite_execution_results
          SET status = $1,
              test_result_id = $2,
              error = $3,
-             ${status === 'running' ? 'start_time = $4,' : ''}
-             ${status === 'success' || status === 'failed' ? 'end_time = $4, duration = EXTRACT(EPOCH FROM ($4 - start_time))::INTEGER * 1000,' : ''}
+             start_time = $4,
              updated_at = CURRENT_TIMESTAMP
-         WHERE execution_id = $5 AND test_case_id = $6`,
-        [
+         WHERE execution_id = $5 AND test_case_id = $6`;
+        params = [
           status,
           testResultId || null,
           error || null,
           now,
           executionDbId,
           testCaseDbId,
-        ]
-      );
+        ];
+      } else if (status === 'success' || status === 'failed') {
+        updateSql = `UPDATE test_suite_execution_results
+         SET status = $1,
+             test_result_id = $2,
+             error = $3,
+             end_time = $4,
+             duration = EXTRACT(EPOCH FROM ($4 - start_time))::INTEGER * 1000,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE execution_id = $5 AND test_case_id = $6`;
+        params = [
+          status,
+          testResultId || null,
+          error || null,
+          now,
+          executionDbId,
+          testCaseDbId,
+        ];
+      } else {
+        // pending 状态
+        updateSql = `UPDATE test_suite_execution_results
+         SET status = $1,
+             test_result_id = $2,
+             error = $3,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE execution_id = $4 AND test_case_id = $5`;
+        params = [
+          status,
+          testResultId || null,
+          error || null,
+          executionDbId,
+          testCaseDbId,
+        ];
+      }
+      
+      await client.query(updateSql, params);
 
       // 更新执行记录的统计信息
       if (status === 'success' || status === 'failed') {
@@ -299,22 +337,42 @@ export class TestSuiteService {
           ? 'completed'
           : 'running';
 
-        await client.query(
-          `UPDATE test_suite_executions
+        // 根据状态构建不同的 SQL 和参数
+        let execUpdateSql: string;
+        let execParams: any[];
+        
+        if (execStatus === 'completed') {
+          execUpdateSql = `UPDATE test_suite_executions
            SET status = $1,
                passed_cases = $2,
                failed_cases = $3,
-               ${execStatus === 'completed' ? 'end_time = $4, duration = EXTRACT(EPOCH FROM ($4 - start_time))::INTEGER * 1000,' : ''}
+               end_time = $4,
+               duration = EXTRACT(EPOCH FROM ($4 - start_time))::INTEGER * 1000,
                updated_at = CURRENT_TIMESTAMP
-           WHERE id = $5`,
-          [
+           WHERE id = $5`;
+          execParams = [
             execStatus,
             stats.rows[0].passed,
             stats.rows[0].failed,
             now,
             executionDbId,
-          ]
-        );
+          ];
+        } else {
+          execUpdateSql = `UPDATE test_suite_executions
+           SET status = $1,
+               passed_cases = $2,
+               failed_cases = $3,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $4`;
+          execParams = [
+            execStatus,
+            stats.rows[0].passed,
+            stats.rows[0].failed,
+            executionDbId,
+          ];
+        }
+        
+        await client.query(execUpdateSql, execParams);
       }
     });
   }

@@ -23,11 +23,6 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/ExecutionDetail.vue')
   },
   {
-    path: '/parse',
-    name: 'Parse',
-    component: () => import('@/views/Parse.vue')
-  },
-  {
     path: '/run',
     name: 'Run',
     component: () => import('@/views/Run.vue')
