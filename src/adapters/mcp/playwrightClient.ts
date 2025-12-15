@@ -53,6 +53,13 @@ export class PlaywrightMCPClient {
     }
 
     /**
+     * 检查是否已连接到服务器
+     */
+    isConnected(): boolean {
+        return this.connection.isConnectedToServer();
+    }
+
+    /**
      * 执行 Playwright 操作
      */
     async executeAction(action: PlaywrightAction): Promise<ExecutionResult> {

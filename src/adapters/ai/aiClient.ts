@@ -217,6 +217,10 @@ export class AIClient {
      */
     private buildPrompt(testCase: TestCase): string {
         logger.debug('Building prompt for test case', { testCaseId: testCase.id });
+        const entryUrlNote = testCase.entryUrl 
+            ? `\n重要提示：如果测试步骤中包含导航操作，请使用以下入口URL：${testCase.entryUrl}\n不要使用测试步骤中可能提到的其他URL（如example.com等占位符URL）。`
+            : '';
+        
         return `请将以下测试用例转换为 Playwright 操作序列：
 
 测试用例ID: ${testCase.id}
@@ -234,7 +238,7 @@ ${testCase.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}
 预期结果:
 ${testCase.expectedResults.map(e => `- ${e}`).join('\n')}
 
-${testCase.entryUrl ? `入口URL: ${testCase.entryUrl}` : ''}
+${testCase.entryUrl ? `入口URL: ${testCase.entryUrl}` : ''}${entryUrlNote}
 
 请根据测试步骤生成对应的 Playwright 操作序列，确保操作顺序正确，选择器准确。`;
     }

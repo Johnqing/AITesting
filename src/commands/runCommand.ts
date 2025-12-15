@@ -1,4 +1,4 @@
-import { TestService } from '../services/testService.js';
+import { TestService } from '../server/testService.js';
 import { Reporter } from '../reporter/reporter.js';
 import { validateEnv } from '../utils/env.js';
 

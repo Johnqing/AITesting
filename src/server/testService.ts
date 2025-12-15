@@ -15,9 +15,10 @@ export class TestService {
 
   constructor(caseDir: string = 'case') {
     this.parser = new CaseParser(caseDir);
-    this.runner = new TestRunner();
-    this.runner.setCaseParser(this.parser);
     this.playwrightClient = new PlaywrightMCPClient();
+    // 将同一个客户端实例传递给 TestRunner，确保连接状态一致
+    this.runner = new TestRunner(undefined, this.playwrightClient);
+    this.runner.setCaseParser(this.parser);
   }
 
   /**
