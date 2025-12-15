@@ -17,21 +17,21 @@
 
         <el-row :gutter="20" class="feature-cards">
             <el-col :xs="24" :sm="12" :md="6">
-                <el-card class="feature-card" shadow="hover" @click="$router.push('/parse')">
+                <el-card class="feature-card" shadow="hover" @click="$router.push('/test-cases')">
                     <el-icon :size="40" color="#409EFF">
                         <DocumentCopy />
                     </el-icon>
-                    <h3>用例解析</h3>
-                    <p>解析 Markdown 格式的测试用例文件</p>
+                    <h3>测试用例</h3>
+                    <p>管理测试用例，支持增删改查</p>
                 </el-card>
             </el-col>
             <el-col :xs="24" :sm="12" :md="6">
-                <el-card class="feature-card" shadow="hover" @click="$router.push('/run')">
+                <el-card class="feature-card" shadow="hover" @click="$router.push('/test-suites')">
                     <el-icon :size="40" color="#67C23A">
-                        <VideoPlay />
+                        <Folder />
                     </el-icon>
-                    <h3>测试执行</h3>
-                    <p>执行测试用例并生成测试报告</p>
+                    <h3>用例集</h3>
+                    <p>管理用例集，支持批量执行</p>
                 </el-card>
             </el-col>
             <el-col :xs="24" :sm="12" :md="6">
@@ -44,12 +44,12 @@
                 </el-card>
             </el-col>
             <el-col :xs="24" :sm="12" :md="6">
-                <el-card class="feature-card" shadow="hover">
+                <el-card class="feature-card" shadow="hover" @click="$router.push('/parse')">
                     <el-icon :size="40" color="#F56C6C">
                         <Setting />
                     </el-icon>
-                    <h3>系统设置</h3>
-                    <p>配置测试环境和参数</p>
+                    <h3>用例解析</h3>
+                    <p>解析 Markdown 格式的测试用例文件</p>
                 </el-card>
             </el-col>
         </el-row>
@@ -69,7 +69,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Document, DocumentCopy, VideoPlay, Setting } from '@element-plus/icons-vue'
+import { Document, DocumentCopy, VideoPlay, Setting, Folder } from '@element-plus/icons-vue'
 import { getApiInfo } from '@/api'
 
 const apiInfo = ref<any>(null)

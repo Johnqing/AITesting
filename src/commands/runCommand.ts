@@ -20,11 +20,14 @@ export async function runAllCommand(options: {
     const service = new TestService(options.caseDir);
     const results = await service.runAll();
 
-    const reporter = new Reporter(options.outputDir);
+    const reporter = new Reporter();
     const report = reporter.generateReport(results);
 
     reporter.printSummary(report);
-    reporter.saveReport(report, options.format);
+    // 保存报告到数据库（format 参数不再影响保存，报告总是保存到数据库）
+    if (options.format && options.format !== 'none') {
+      await reporter.saveReport(report);
+    }
 
     process.exit(report.failed > 0 ? 1 : 0);
   } catch (error) {
@@ -50,11 +53,14 @@ export async function runFileCommand(file: string, options: {
     const service = new TestService();
     const results = await service.runFile(file);
 
-    const reporter = new Reporter(options.outputDir);
+    const reporter = new Reporter();
     const report = reporter.generateReport(results);
 
     reporter.printSummary(report);
-    reporter.saveReport(report, options.format);
+    // 保存报告到数据库（format 参数不再影响保存，报告总是保存到数据库）
+    if (options.format && options.format !== 'none') {
+      await reporter.saveReport(report);
+    }
 
     process.exit(report.failed > 0 ? 1 : 0);
   } catch (error) {
@@ -84,11 +90,14 @@ export async function runStringCommand(caseContent: string, options: {
     const service = new TestService();
     const results = await service.runFromString(caseContent, options.entryUrl);
 
-    const reporter = new Reporter(options.outputDir);
+    const reporter = new Reporter();
     const report = reporter.generateReport(results);
 
     reporter.printSummary(report);
-    reporter.saveReport(report, options.format);
+    // 保存报告到数据库（format 参数不再影响保存，报告总是保存到数据库）
+    if (options.format && options.format !== 'none') {
+      await reporter.saveReport(report);
+    }
 
     process.exit(report.failed > 0 ? 1 : 0);
   } catch (error) {

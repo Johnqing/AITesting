@@ -16,7 +16,9 @@
     "test": "pnpm dev run",
     "test:api": "npx vitest run src/server/__tests__",
     "test:api:watch": "npx vitest watch src/server/__tests__",
-    "test:api:ui": "npx vitest --ui"
+    "test:api:ui": "npx vitest --ui",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:verify": "tsx scripts/verify-tables.ts"
   },
   "keywords": [
     "playwright",
@@ -35,6 +37,7 @@
     "express": "^4.22.1",
     "gray-matter": "^4.0.3",
     "openai": "^4.77.1",
+    "pg": "^8.16.3",
     "playwright": "^1.48.2"
   },
   "devDependencies": {

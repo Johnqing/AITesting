@@ -2,7 +2,7 @@ import { CaseParser } from '../parser/caseParser.js';
 import { AIClient, PlaywrightAction } from '../../adapters/ai/aiClient.js';
 import { PlaywrightMCPClient } from '../../adapters/mcp/playwrightClient.js';
 import { TestCase, CaseFile } from '../../types/case.js';
-import { TestResult, ActionResult } from '../../types/result.js';
+import { TestResult, ActionResult, ExpectedResultCheck } from '../../types/result.js';
 
 export class TestRunner {
   private caseParser?: CaseParser;
@@ -125,14 +125,21 @@ export class TestRunner {
         const actionStartTime = new Date();
         const executionResult = await this.playwrightClient.executeAction(action);
         const actionEndTime = new Date();
+        const actionDuration = actionEndTime.getTime() - actionStartTime.getTime();
 
         actionResults.push({
           action: {
             type: action.type,
-            description: action.description
+            description: action.description,
+            selector: action.selector,
+            url: action.url,
+            text: action.text,
+            timeout: action.timeout,
+            expected: action.expected
           },
           result: executionResult,
-          timestamp: actionStartTime
+          timestamp: actionStartTime,
+          duration: actionDuration
         });
 
         // 如果操作失败，记录错误但继续执行（可选：可以在这里停止）
@@ -164,6 +171,18 @@ export class TestRunner {
         return ar.result.success;
       });
 
+      // 检查预期结果是否匹配
+      const expectedResultsCheck = this.checkExpectedResults(
+        testCase.expectedResults,
+        actionResults
+      );
+
+      // 统计信息
+      const passedActions = actionResults.filter(ar => ar.result.success).length;
+      const failedActions = actionResults.length - passedActions;
+      const matchedExpectedResults = expectedResultsCheck.filter(ec => ec.matched).length;
+      const unmatchedExpectedResults = expectedResultsCheck.length - matchedExpectedResults;
+
       const endTime = new Date();
       const duration = endTime.getTime() - startTime.getTime();
 
@@ -173,7 +192,16 @@ export class TestRunner {
         startTime,
         endTime,
         duration,
-        actionResults
+        actionResults,
+        expectedResultsCheck,
+        summary: {
+          totalActions: actionResults.length,
+          passedActions,
+          failedActions,
+          totalExpectedResults: testCase.expectedResults.length,
+          matchedExpectedResults,
+          unmatchedExpectedResults
+        }
       };
     } catch (error) {
       const endTime = new Date();
@@ -196,6 +224,157 @@ export class TestRunner {
    */
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 检查预期结果是否匹配
+   */
+  private checkExpectedResults(
+    expectedResults: string[],
+    actionResults: ActionResult[]
+  ): ExpectedResultCheck[] {
+    const checks: ExpectedResultCheck[] = [];
+
+    // 收集所有操作的实际结果，包含更详细的信息
+    const actualResults: string[] = [];
+    const actionDetails: Array<{ description: string; message: string; success: boolean; type: string }> = [];
+
+    actionResults.forEach(ar => {
+      const detail = {
+        description: ar.action.description,
+        message: ar.result.message || '',
+        success: ar.result.success,
+        type: ar.action.type
+      };
+      actionDetails.push(detail);
+
+      // 收集消息
+      if (ar.result.message) {
+        actualResults.push(ar.result.message);
+      }
+      // 收集操作描述
+      actualResults.push(ar.action.description);
+      // 收集操作类型和结果
+      if (ar.action.type === 'verify' && ar.action.expected) {
+        actualResults.push(`验证${ar.action.expected}: ${ar.result.success ? '通过' : '失败'}`);
+      }
+      if (ar.action.type === 'fill' && ar.action.text) {
+        actualResults.push(`输入${ar.action.text}`);
+      }
+      if (ar.action.type === 'click') {
+        actualResults.push(`点击${ar.action.text || ar.action.selector || '元素'}`);
+      }
+    });
+
+    // 将实际结果合并为一个字符串用于匹配
+    const actualResultsText = actualResults.join(' ').toLowerCase();
+
+    // 检查每个预期结果
+    expectedResults.forEach(expected => {
+      const expectedLower = expected.toLowerCase().trim();
+      let matched = false;
+      let matchType: 'exact' | 'partial' | 'contains' | 'not_matched' = 'not_matched';
+      let actual = '';
+
+      // 提取预期结果中的关键词
+      const keywords = expectedLower
+        .replace(/[，。、；：！？""''（）()【】\[\]]/g, ' ')
+        .split(/\s+/)
+        .filter(k => k.length > 1);
+
+      // 1. 精确匹配
+      if (actualResultsText.includes(expectedLower)) {
+        matched = true;
+        matchType = 'exact';
+        // 找到匹配的实际结果
+        const matchingDetails = actionDetails.filter(ad =>
+          ad.message.toLowerCase().includes(expectedLower) ||
+          ad.description.toLowerCase().includes(expectedLower)
+        );
+        if (matchingDetails.length > 0) {
+          actual = matchingDetails.map(ad => `${ad.type}: ${ad.message || ad.description}`).join('; ');
+        } else {
+          actual = expected;
+        }
+      } else {
+        // 2. 部分匹配（关键词匹配）
+        const matchedKeywords = keywords.filter(k => actualResultsText.includes(k));
+        if (matchedKeywords.length > 0) {
+          const matchRatio = matchedKeywords.length / keywords.length;
+          if (matchRatio >= 0.5) {
+            matched = true;
+            matchType = matchRatio >= 0.8 ? 'partial' : 'contains';
+
+            // 找到包含这些关键词的操作
+            const matchingDetails = actionDetails.filter(ad => {
+              const text = (ad.message + ' ' + ad.description).toLowerCase();
+              return matchedKeywords.some(k => text.includes(k));
+            });
+
+            if (matchingDetails.length > 0) {
+              actual = matchingDetails.map(ad => `${ad.type}: ${ad.message || ad.description}`).join('; ');
+            } else {
+              actual = `匹配到关键词: ${matchedKeywords.join(', ')}`;
+            }
+          }
+        }
+
+        // 3. 如果没有匹配，尝试从操作结果中提取相关信息
+        if (!matched && keywords.length > 0) {
+          // 查找相关的操作结果
+          const relatedActions = actionDetails.filter(ad => {
+            const text = (ad.message + ' ' + ad.description).toLowerCase();
+            return keywords.some(k => text.includes(k));
+          });
+
+          if (relatedActions.length > 0) {
+            actual = relatedActions
+              .map(ad => `${ad.type}: ${ad.message || ad.description}${ad.success ? ' (成功)' : ' (失败)'}`)
+              .join('; ');
+            matchType = 'contains';
+            // 如果相关操作都成功，认为部分匹配
+            if (relatedActions.every(ad => ad.success)) {
+              matched = true;
+            }
+          } else {
+            // 尝试模糊匹配：查找包含部分关键词的操作
+            const partialMatches: string[] = [];
+            keywords.forEach(k => {
+              actionDetails.forEach(ad => {
+                const text = (ad.message + ' ' + ad.description).toLowerCase();
+                if (text.includes(k) && !partialMatches.includes(ad.description)) {
+                  partialMatches.push(`${ad.type}: ${ad.message || ad.description}`);
+                }
+              });
+            });
+
+            if (partialMatches.length > 0) {
+              actual = `部分相关操作: ${partialMatches.join('; ')}`;
+            } else {
+              actual = `未找到匹配的实际结果。实际执行的操作: ${actionDetails.map(ad => ad.description).join('; ')}`;
+            }
+          }
+        }
+      }
+
+      // 如果没有找到实际结果，使用所有操作结果的摘要
+      if (!actual) {
+        const summary = actionDetails
+          .filter(ad => ad.success)
+          .map(ad => ad.description)
+          .join('; ');
+        actual = summary || '无成功操作';
+      }
+
+      checks.push({
+        expected,
+        actual: actual.length > 500 ? actual.substring(0, 500) + '...' : actual,
+        matched,
+        matchType
+      });
+    });
+
+    return checks;
   }
 }
 

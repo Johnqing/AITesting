@@ -89,3 +89,20 @@ export const getReport = async (reportId: string, format?: string) => {
   }
 }
 
+// 测试用例接口
+export const getAllTestCases = () => api.get('/test-cases')
+export const getTestCaseById = (caseId: string) => api.get(`/test-cases/${caseId}`)
+export const createTestCase = (data: any) => api.post('/test-cases', data)
+export const updateTestCase = (caseId: string, data: any) => api.put(`/test-cases/${caseId}`, data)
+export const deleteTestCase = (caseId: string) => api.delete(`/test-cases/${caseId}`)
+
+// 用例集接口
+export const getAllTestSuites = () => api.get('/test-suites')
+export const getTestSuiteById = (suiteId: string) => api.get(`/test-suites/${suiteId}`)
+export const createTestSuite = (data: any) => api.post('/test-suites', data)
+export const updateTestSuite = (suiteId: string, data: any) => api.put(`/test-suites/${suiteId}`, data)
+export const deleteTestSuite = (suiteId: string) => api.delete(`/test-suites/${suiteId}`)
+export const executeTestSuite = (suiteId: string) => api.post(`/test-suites/${suiteId}/execute`)
+export const getSuiteExecutions = (suiteId: string) => api.get(`/test-suites/${suiteId}/executions`)
+export const getExecution = (executionId: string) => api.get(`/executions/${executionId}`)
+

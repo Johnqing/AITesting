@@ -17,12 +17,12 @@ export async function runAll(req: Request, res: Response): Promise<void> {
     const results = await service.runAll();
     const duration = Date.now() - startTime;
 
-    const reporter = new Reporter(outputDir || 'reports');
+    const reporter = new Reporter();
     const report = reporter.generateReport(results);
 
-    // 保存报告
+    // 保存报告（仅 Markdown）
     if (format && format !== 'none') {
-      reporter.saveReport(report, format || 'both');
+      await reporter.saveReport(report);
     }
 
     res.json({
@@ -83,12 +83,12 @@ export async function runFile(req: Request, res: Response): Promise<void> {
     const results = await service.runFile(filePath);
     const duration = Date.now() - startTime;
 
-    const reporter = new Reporter(outputDir || 'reports');
+    const reporter = new Reporter();
     const report = reporter.generateReport(results);
 
-    // 保存报告
+    // 保存报告（仅 Markdown）
     if (format && format !== 'none') {
-      reporter.saveReport(report, format || 'both');
+      await reporter.saveReport(report);
     }
 
     res.json({
@@ -157,12 +157,12 @@ export async function runTestCase(req: Request, res: Response): Promise<void> {
     const duration = Date.now() - startTime;
 
     // 生成报告
-    const reporter = new Reporter(outputDir || 'reports');
+    const reporter = new Reporter();
     const report = reporter.generateReport([result]);
 
-    // 保存报告
+    // 保存报告（仅 Markdown）
     if (format && format !== 'none') {
-      reporter.saveReport(report, format || 'both');
+      await reporter.saveReport(report);
     }
 
     res.json({
@@ -219,12 +219,12 @@ export async function runString(req: Request, res: Response): Promise<void> {
     const results = await service.runFromString(content, entryUrl);
     const duration = Date.now() - startTime;
 
-    const reporter = new Reporter(outputDir || 'reports');
+    const reporter = new Reporter();
     const report = reporter.generateReport(results);
 
-    // 保存报告
+    // 保存报告（仅 Markdown）
     if (format && format !== 'none') {
-      reporter.saveReport(report, format || 'both');
+      await reporter.saveReport(report);
     }
 
     res.json({

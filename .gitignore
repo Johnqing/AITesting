@@ -7,3 +7,7 @@ reports/
 case/
 reports/
 
+
+/src/generated/prisma
+
+/src/generated/prisma

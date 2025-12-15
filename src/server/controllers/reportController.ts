@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { readdirSync, statSync, existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { testReportService } from '../../db/index.js';
+import { Reporter } from '../../reporter/reporter.js';
 
 /**
  * 获取测试报告
@@ -10,26 +10,24 @@ export async function getReport(req: Request, res: Response): Promise<void> {
     const { reportId } = req.params;
     const { format } = req.query;
 
-    const reportsDir = 'reports';
-    const jsonPath = join(reportsDir, `${reportId}.json`);
-    const mdPath = join(reportsDir, `${reportId}.md`);
-
-    if (format === 'markdown' || format === 'md') {
-      if (existsSync(mdPath)) {
-        const content = readFileSync(mdPath, 'utf-8');
-        res.setHeader('Content-Type', 'text/markdown');
-        res.send(content);
-        return;
-      }
-    } else {
-      if (existsSync(jsonPath)) {
-        const content = JSON.parse(readFileSync(jsonPath, 'utf-8'));
-        res.json({ success: true, data: content });
-        return;
-      }
+    // 从数据库获取报告
+    const report = await testReportService.getTestReportByReportId(reportId);
+    if (!report) {
+      res.status(404).json({ 
+        success: false,
+        error: 'Report not found' 
+      });
+      return;
     }
 
-    res.status(404).json({ error: 'Report not found' });
+    if (format === 'markdown' || format === 'md') {
+      const reporter = new Reporter();
+      const markdown = reporter.generateMarkdownReport(report);
+      res.setHeader('Content-Type', 'text/markdown');
+      res.send(markdown);
+    } else {
+      res.json({ success: true, data: report });
+    }
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -39,32 +37,22 @@ export async function getReport(req: Request, res: Response): Promise<void> {
 }
 
 /**
- * 列出所有测试报告
+ * 列出所有测试报告（仅从数据库）
  */
 export async function listReports(req: Request, res: Response): Promise<void> {
   try {
-    const reportsDir = 'reports';
-    if (!existsSync(reportsDir)) {
-      res.json({ success: true, data: [] });
-      return;
-    }
+    // 从数据库获取所有报告
+    const dbReports = await testReportService.getAllTestReports();
+    
+    const reports = dbReports.map(r => ({
+      id: r.reportId,
+      filename: `${r.reportId}.md`,
+      createdAt: r.createdAt.toISOString(),
+      modifiedAt: r.updatedAt.toISOString(),
+      size: 0, // 报告存储在数据库中，没有文件大小概念
+    }));
 
-    const files = readdirSync(reportsDir)
-      .filter(file => file.endsWith('.json'))
-      .map(file => {
-        const filePath = join(reportsDir, file);
-        const stats = statSync(filePath);
-        return {
-          id: file.replace('.json', ''),
-          filename: file,
-          createdAt: stats.birthtime.toISOString(),
-          modifiedAt: stats.mtime.toISOString(),
-          size: stats.size
-        };
-      })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    res.json({ success: true, data: files });
+    res.json({ success: true, data: reports });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -72,4 +60,3 @@ export async function listReports(req: Request, res: Response): Promise<void> {
     });
   }
 }
-
