@@ -86,49 +86,49 @@ export class TestRunner {
     const actionResults: ActionResult[] = [];
 
     try {
-      console.log(`\nRunning test case: ${testCase.id} - ${testCase.title} - ${entryUrl}`);
+      console.log(`\nRunning test case: ${testCase.id} - ${testCase.title}`);
 
       // 使用 AI 将测试用例转换为操作序列
       let actions: PlaywrightAction[];
       try {
         actions = await this.aiClient.convertTestCaseToActions(testCase);
-        console.log(`Generated ${actions.length} actions from AI`);
+        console.log(`Generated ${actions.length} actions from AI for test case: ${testCase.id} - ${testCase.title}`, { actions });
       } catch (error) {
         throw new Error(`Failed to convert test case to actions: ${error instanceof Error ? error.message : String(error)}`);
       }
 
       // 如果有入口URL，确保第一个操作是导航到正确的URL
       // 但如果当前URL与入口URL相同，则跳过导航操作
-      if (entryUrl && actions.length > 0) {
-        // 检查是否需要导航（当前URL与入口URL不同）
-        const needNavigate = currentUrl !== entryUrl;
+      // if (entryUrl && actions.length > 0) {
+      //   // 检查是否需要导航（当前URL与入口URL不同）
+      //   const needNavigate = currentUrl !== entryUrl;
 
-        if (needNavigate) {
-          if (actions[0].type === 'navigate') {
-            // 如果第一个操作已经是导航，但URL不匹配entryUrl，则替换它
-            if (actions[0].url !== entryUrl) {
-              console.log(`Replacing navigate URL from "${actions[0].url}" to "${entryUrl}"`);
-              actions[0].url = entryUrl;
-              actions[0].description = `Navigate to entry URL: ${entryUrl}`;
-            }
-          } else {
-            // 如果第一个操作不是导航，则在前面添加导航操作
-            actions.unshift({
-              type: 'navigate',
-              url: entryUrl,
-              description: `Navigate to entry URL: ${entryUrl}`
-            });
-          }
-        } else {
-          // 当前URL与入口URL相同，跳过导航操作
-          console.log(`Skipping navigation - already on URL: ${entryUrl}`);
-          // 如果第一个操作是导航且URL匹配，移除它
-          if (actions[0].type === 'navigate' && actions[0].url === entryUrl) {
-            actions.shift();
-            console.log(`Removed redundant navigate action`);
-          }
-        }
-      }
+      //   if (needNavigate) {
+      //     if (actions[0].type === 'navigate') {
+      //       // 如果第一个操作已经是导航，但URL不匹配entryUrl，则替换它
+      //       if (actions[0].url !== entryUrl) {
+      //         console.log(`Replacing navigate URL from "${actions[0].url}" to "${entryUrl}"`);
+      //         actions[0].url = entryUrl;
+      //         actions[0].description = `Navigate to entry URL: ${entryUrl}`;
+      //       }
+      //     } else {
+      //       // 如果第一个操作不是导航，则在前面添加导航操作
+      //       actions.unshift({
+      //         type: 'navigate',
+      //         url: entryUrl,
+      //         description: `Navigate to entry URL: ${entryUrl}`
+      //       });
+      //     }
+      //   } else {
+      //     // 当前URL与入口URL相同，跳过导航操作
+      //     console.log(`Skipping navigation - already on URL: ${entryUrl}`);
+      //     // 如果第一个操作是导航且URL匹配，移除它
+      //     if (actions[0].type === 'navigate' && actions[0].url === entryUrl) {
+      //       actions.shift();
+      //       console.log(`Removed redundant navigate action`);
+      //     }
+      //   }
+      // }
 
       // 确保已连接（连接管理由调用方负责，这里只做检查）
       if (!this.playwrightClient.isConnected()) {

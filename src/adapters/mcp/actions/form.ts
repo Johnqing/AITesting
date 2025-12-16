@@ -25,7 +25,7 @@ export class FillAction extends BaseAction {
 
             // 处理 selector，提取搜索文本
             let searchText: string = selector;
-            
+
             // 处理 placeholder 格式，如 placeholder="请输入用户名"
             if (selector.includes('placeholder=')) {
                 const match = selector.match(/placeholder=["']([^"']+)["']/);
@@ -45,16 +45,16 @@ export class FillAction extends BaseAction {
 
             // 查找输入框元素
             const allElements = getAllTextElements(snapshotContent);
-            
+
             // 查找匹配的输入框（textbox 类型）
             const textboxMatches = allElements.filter(e => {
                 const elementTextNormalized = e.text.toLowerCase().trim().replace(/\s+/g, '');
                 const searchTextNormalized = searchText.toLowerCase().trim().replace(/\s+/g, '');
                 const elementTextLower = e.text.toLowerCase().trim();
                 const searchTextLower = searchText.toLowerCase().trim();
-                
+
                 return (e.role.toLowerCase() === 'textbox' || e.role.toLowerCase() === 'combobox') &&
-                       (elementTextNormalized === searchTextNormalized ||
+                    (elementTextNormalized === searchTextNormalized ||
                         elementTextNormalized.includes(searchTextNormalized) ||
                         elementTextLower.includes(searchTextLower) ||
                         searchTextLower.includes(elementTextLower));
