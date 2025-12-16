@@ -5,6 +5,7 @@ import runRoutes from './runRoutes.js';
 import reportRoutes from './reportRoutes.js';
 import testCaseRoutes from './testCaseRoutes.js';
 import testSuiteRoutes from './testSuiteRoutes.js';
+import prdRoutes from './prdRoutes.js';
 
 const router = Router();
 
@@ -15,6 +16,7 @@ router.use(runRoutes);
 router.use(reportRoutes);
 router.use(testCaseRoutes);
 router.use(testSuiteRoutes);
+router.use(prdRoutes);
 
 export default router;
 

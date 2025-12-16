@@ -4,10 +4,16 @@
       <template #header>
         <div class="card-header">
           <span>测试用例管理</span>
-          <el-button type="primary" @click="handleAdd">
-            <el-icon><Plus /></el-icon>
-            新增用例
-          </el-button>
+          <div>
+            <el-button type="success" @click="handleUploadXmind" style="margin-right: 10px">
+              <el-icon><Upload /></el-icon>
+              导入 XMind
+            </el-button>
+            <el-button type="primary" @click="handleAdd">
+              <el-icon><Plus /></el-icon>
+              新增用例
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -68,6 +74,41 @@
         style="margin-top: 20px; justify-content: flex-end"
       />
     </el-card>
+
+    <!-- XMind 上传对话框 -->
+    <el-dialog
+      v-model="uploadDialogVisible"
+      title="导入 XMind 文件"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <el-upload
+        ref="uploadRef"
+        class="upload-demo"
+        drag
+        :auto-upload="false"
+        :on-change="handleFileChange"
+        :file-list="fileList"
+        accept=".xmind"
+        :limit="1"
+      >
+        <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+        <div class="el-upload__text">
+          将 XMind 文件拖到此处，或<em>点击上传</em>
+        </div>
+        <template #tip>
+          <div class="el-upload__tip">
+            只能上传 .xmind 文件
+          </div>
+        </template>
+      </el-upload>
+      <template #footer>
+        <el-button @click="uploadDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleUploadSubmit" :loading="uploading">
+          解析并导入
+        </el-button>
+      </template>
+    </el-dialog>
 
     <!-- 新增/编辑对话框 -->
     <el-dialog
@@ -182,13 +223,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Upload, UploadFilled } from '@element-plus/icons-vue'
 import {
   getAllTestCases,
   createTestCase,
   updateTestCase,
   deleteTestCase,
+  uploadXmindFile,
 } from '@/api'
+import type { UploadFile, UploadFiles } from 'element-plus'
 
 const loading = ref(false)
 const testCases = ref<any[]>([])
@@ -196,6 +239,13 @@ const dialogVisible = ref(false)
 const submitting = ref(false)
 const formRef = ref<any>(null)
 const isEdit = ref(false)
+
+// XMind 上传相关
+const uploadDialogVisible = ref(false)
+const uploading = ref(false)
+const uploadRef = ref<any>(null)
+const fileList = ref<UploadFiles>([])
+const selectedFile = ref<File | null>(null)
 
 const searchForm = ref({
   title: '',
@@ -376,6 +426,61 @@ const handleDelete = async (row: any) => {
     if (error !== 'cancel') {
       ElMessage.error(error.message || '删除失败')
     }
+  }
+}
+
+const handleUploadXmind = () => {
+  uploadDialogVisible.value = true
+  fileList.value = []
+  selectedFile.value = null
+}
+
+const handleFileChange = (file: UploadFile) => {
+  selectedFile.value = file.raw as File
+}
+
+const handleUploadSubmit = async () => {
+  if (!selectedFile.value) {
+    ElMessage.warning('请选择要上传的 XMind 文件')
+    return
+  }
+
+  uploading.value = true
+  try {
+    const response = await uploadXmindFile(selectedFile.value)
+    if (response.success && response.data) {
+      const { testCases: parsedCases } = response.data
+      
+      if (parsedCases && parsedCases.length > 0) {
+        // 批量创建测试用例
+        let successCount = 0
+        let failCount = 0
+        
+        for (const testCase of parsedCases) {
+          try {
+            await createTestCase(testCase)
+            successCount++
+          } catch (error: any) {
+            console.error('创建测试用例失败:', error)
+            failCount++
+          }
+        }
+        
+        if (successCount > 0) {
+          ElMessage.success(`成功导入 ${successCount} 个测试用例${failCount > 0 ? `，${failCount} 个失败` : ''}`)
+          uploadDialogVisible.value = false
+          loadTestCases()
+        } else {
+          ElMessage.error('导入失败，请检查文件格式')
+        }
+      } else {
+        ElMessage.warning('XMind 文件中没有找到测试用例')
+      }
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '上传并解析 XMind 文件失败')
+  } finally {
+    uploading.value = false
   }
 }
 

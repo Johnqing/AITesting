@@ -26,13 +26,17 @@
       <el-icon><VideoPlay /></el-icon>
       <span>测试执行</span>
     </el-menu-item>
+    <el-menu-item index="/prds">
+      <el-icon><DocumentChecked /></el-icon>
+      <span>PRD管理</span>
+    </el-menu-item>
   </el-menu>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { HomeFilled, DocumentCopy, VideoPlay, Document, Folder } from '@element-plus/icons-vue'
+import { HomeFilled, DocumentCopy, VideoPlay, Document, Folder, DocumentChecked } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const activeIndex = computed(() => {

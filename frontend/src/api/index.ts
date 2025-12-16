@@ -53,6 +53,18 @@ export const parseString = (data: { content: string; virtualFilePath?: string })
 export const parseDirectory = (data: { dirPath?: string; caseDir?: string }) =>
   api.post('/parse/directory', data)
 
+// XMind 文件上传和解析
+export const uploadXmindFile = (file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.post('/parse/xmind', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    },
+    timeout: 60000 // 60秒超时，因为解析可能需要较长时间
+  })
+}
+
 // 运行接口
 export const runAll = (data: { caseDir?: string; outputDir?: string; format?: string }) =>
   api.post('/run/all', data)
@@ -105,4 +117,15 @@ export const deleteTestSuite = (suiteId: string) => api.delete(`/test-suites/${s
 export const executeTestSuite = (suiteId: string) => api.post(`/test-suites/${suiteId}/execute`)
 export const getSuiteExecutions = (suiteId: string) => api.get(`/test-suites/${suiteId}/executions`)
 export const getExecution = (executionId: string) => api.get(`/executions/${executionId}`)
+
+// PRD 接口
+export const getAllPRDs = () => api.get('/prds')
+export const getPRDById = (prdId: string) => api.get(`/prds/${prdId}`)
+export const createPRD = (data: any) => api.post('/prds', data)
+export const updatePRD = (prdId: string, data: any) => api.put(`/prds/${prdId}`, data)
+export const deletePRD = (prdId: string) => api.delete(`/prds/${prdId}`)
+export const generateTestCasesFromPRD = (prdId: string, saveToDatabase: boolean = true) =>
+  api.post(`/prds/${prdId}/generate-test-cases`, { saveToDatabase })
+export const getPRDGeneratedTestCases = (prdId: string) => api.get(`/prds/${prdId}/test-cases`)
+export const uploadPRDFile = (data: { filePath: string }) => api.post('/prds/upload', data)
 

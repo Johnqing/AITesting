@@ -5,6 +5,7 @@
 ## 功能特性
 
 - 📝 支持 Markdown 格式的测试用例
+- 🗺️ **支持 XMind 文件解析**（将思维导图转换为测试用例）
 - 🤖 使用 AI 大模型（GLM-4.5）解析测试步骤
 - 🎭 通过 MCP 协议调用 Playwright 执行浏览器操作
 - 📊 生成详细的测试报告（Markdown/JSON）
@@ -15,6 +16,7 @@
 - 📦 测试用例管理（CRUD 操作）
 - 🎯 测试用例集管理（创建、执行、记录查看）
 - 🌍 环境管理（生产环境/预发布环境/测试环境）
+- 📋 **PRD 解析生成测试用例**（从产品需求文档自动生成测试用例）
 
 ## 快速开始
 
@@ -138,6 +140,7 @@ pnpm dev
 
 打开浏览器访问 `http://localhost:5174`，即可使用可视化界面进行：
 - 测试用例管理（新增、编辑、删除、筛选）
+- **XMind 文件导入**（上传 XMind 文件自动解析为测试用例）
 - 测试用例集管理（创建、执行、查看记录）
 - 测试执行和报告查看
 
@@ -186,7 +189,7 @@ Options:
   -f, --format <format>    报告格式: markdown, json, both (默认: both)
 ```
 
-#### 直接运行用例字符串（新功能）
+#### 直接运行用例字符串
 
 ```bash
 testflow run-string "<case-content>" [options]
@@ -195,6 +198,34 @@ Options:
   -u, --entry-url <url>    测试页面的入口URL
   -o, --output-dir <dir>   报告输出目录 (默认: reports)
   -f, --format <format>    报告格式: markdown, json, both (默认: both)
+```
+
+#### 从 PRD 生成测试用例（新功能）
+
+```bash
+# 从 PRD 文件生成测试用例
+testflow prd-generate <prd-file> [options]
+
+Options:
+  --prd-id <id>            PRD ID（可选，不提供则自动生成）
+  --no-save                不保存测试用例到数据库
+
+# 从 PRD 字符串生成测试用例
+testflow prd-generate-string "<prd-content>" [options]
+
+Options:
+  --prd-id <id>            PRD ID（可选，不提供则自动生成）
+  --no-save                不保存测试用例到数据库
+```
+
+示例：
+
+```bash
+# 从 PRD 文件生成测试用例
+testflow prd-generate PRD.md
+
+# 从 PRD 字符串生成测试用例
+testflow prd-generate-string "$(cat PRD.md)"
 ```
 
 示例：
@@ -218,6 +249,8 @@ testflow run-string "# 测试模块
 ```
 
 ## 测试用例格式
+
+### Markdown 格式
 
 测试用例文件应放在 `case/` 目录下，使用 Markdown 格式：
 
@@ -266,6 +299,42 @@ testflow run-string "# 测试模块
 - **测试步骤**: 详细的测试操作步骤
 - **预期结果**: 每个步骤或整体的预期结果
 
+### XMind 格式
+
+系统支持直接导入 XMind 思维导图文件（`.xmind`），自动解析为测试用例。
+
+**XMind 文件结构要求**：
+- 根主题：作为模块名称
+- 第一层子主题：每个子主题作为一个测试用例标题
+- 第二层子主题：包含前置条件、测试步骤、预期结果等信息
+
+**解析规则**：
+- 自动识别包含"前置条件"、"进入"、"环境"等关键词的节点作为前置条件
+- 自动识别包含"步骤"、"操作"或数字编号的节点作为测试步骤
+- 自动识别包含"预期"、"结果"、"验证"等关键词的节点作为预期结果
+- 自动提取测试用例 ID（如果标题中包含 TC- 格式）
+- 自动识别优先级、测试类型等信息
+
+**使用方式**：
+
+1. **Web UI 导入**：
+   - 在"测试用例管理"页面点击"导入 XMind"按钮
+   - 选择或拖拽 XMind 文件
+   - 系统自动解析并批量创建测试用例
+
+2. **命令行解析**：
+   ```bash
+   # 解析 XMind 文件（通过文件路径）
+   testflow parse-file case/example.xmind
+   ```
+
+3. **API 上传**：
+   ```bash
+   # 通过 API 上传 XMind 文件
+   curl -X POST http://localhost:3000/api/v1/parse/xmind \
+     -F "file=@example.xmind"
+   ```
+
 ## 项目结构
 
 ```
@@ -288,6 +357,9 @@ testflow/
 ├── src/
 │   ├── core/               # 核心功能模块
 │   │   ├── parser/         # 用例解析器
+│   │   │   ├── caseParser.ts        # 主解析器（协调器）
+│   │   │   ├── markdownCaseParser.ts # Markdown 解析器
+│   │   │   └── xmindCaseParser.ts   # XMind 解析器
 │   │   └── runner/         # 测试执行器
 │   ├── adapters/           # 适配器层（便于扩展其他能力）
 │   │   ├── ai/             # AI 客户端适配器
@@ -386,6 +458,7 @@ testflow/
 - `GET /api/v1/test-suites` - 获取所有用例集
 - `POST /api/v1/test-suites/:suiteId/execute` - 执行用例集
 - `GET /api/v1/reports` - 获取所有测试报告
+- `POST /api/v1/parse/xmind` - 上传并解析 XMind 文件
 
 ## 数据库
 

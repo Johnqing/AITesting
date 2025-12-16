@@ -43,6 +43,8 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 | 数据库存储 | 使用 PostgreSQL 存储测试用例、报告、用例集等数据 | P0 |
 | 测试用例管理 | 支持测试用例的增删改查，支持环境筛选（生产/预发布/测试） | P0 |
 | 测试用例集 | 支持用例集的创建、执行、执行记录查看 | P0 |
+| PRD 解析生成 | 从 PRD（产品需求文档）自动生成测试用例 | P0 |
+| XMind 文件解析 | 支持 XMind 思维导图文件解析为测试用例 | P0 |
 | 字符串执行 | 支持直接运行用例字符串 | P1 |
 
 ### 3.2 功能详细说明
@@ -103,6 +105,49 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 **技术实现**：
 - AI 解析：使用 GLM-4.5 等大模型 API，通过 Prompt 工程提取结构化信息
 - 正则解析：使用正则表达式匹配 Markdown 格式，作为 AI 解析失败时的后备方案
+- XMind 解析：使用 JSZip 解压 XMind 文件，解析 content.json 结构，转换为测试用例
+
+#### 3.2.1.1 XMind 文件解析功能
+
+**功能描述**：
+- 支持解析 XMind 思维导图文件（`.xmind` 格式）
+- 自动将思维导图结构转换为测试用例
+- 支持文件上传和批量导入
+- 智能识别测试用例的各个组成部分
+
+**XMind 文件结构**：
+- XMind 文件实际上是一个 ZIP 压缩包，包含 `content.json` 文件
+- JSON 结构包含 sheets 数组，每个 sheet 有 rootTopic（根主题）
+- 根主题的子节点（attached）作为测试用例
+
+**解析规则**：
+1. **模块识别**：根主题的标题作为模块名称
+2. **测试用例识别**：根主题的第一层子主题作为测试用例标题
+3. **字段提取**：
+   - **前置条件**：识别包含"前置条件"、"进入"、"环境"等关键词的节点
+   - **测试步骤**：识别包含"步骤"、"操作"或数字编号（如"1."）的节点
+   - **预期结果**：识别包含"预期"、"结果"、"验证"等关键词的节点
+   - **优先级**：识别包含"优先级"、"priority"的节点，提取 P0/P1/P2
+   - **测试类型**：识别包含"类型"、"测试类型"的节点
+   - **功能模块**：识别包含"模块"的节点
+   - **入口URL**：从前置条件中提取 URL（https://...）
+
+**解析流程**：
+1. 使用 JSZip 解压 XMind 文件
+2. 读取 `content.json` 文件
+3. 解析 JSON 结构，提取根主题和子主题
+4. 遍历每个子主题，转换为测试用例对象
+5. 递归解析子节点的子节点，提取详细信息
+
+**技术实现**：
+- 使用 `jszip` 库解压 XMind 文件
+- 使用 `XMindCaseParser` 类专门处理 XMind 文件解析
+- 支持通过 `CaseParser` 主解析器自动识别文件类型并调用对应解析器
+
+**使用场景**：
+- 测试人员使用 XMind 工具编写测试用例思维导图
+- 通过 Web UI 上传 XMind 文件，批量导入测试用例
+- 支持命令行和 API 方式解析 XMind 文件
 
 #### 3.2.2 AI 转换功能
 
@@ -265,9 +310,10 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
    - `GET /api/v1/reports/:reportId` - 获取单个测试报告
 
 4. **用例解析** (`/api/v1/parse`)
-   - `POST /api/v1/parse/file` - 解析测试用例文件
+   - `POST /api/v1/parse/file` - 解析测试用例文件（支持 .md 和 .xmind）
    - `POST /api/v1/parse/string` - 解析测试用例字符串
    - `POST /api/v1/parse/directory` - 解析目录
+   - `POST /api/v1/parse/xmind` - 上传并解析 XMind 文件（multipart/form-data）
 
 5. **测试执行** (`/api/v1/run`)
    - `POST /api/v1/run/all` - 运行所有测试用例
@@ -294,6 +340,7 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
    - 测试用例列表展示
    - 支持按名称、环境、优先级筛选
    - 新增、编辑、删除测试用例
+   - **XMind 文件导入**：支持上传 XMind 文件，自动解析并批量创建测试用例
    - 测试用例字段：
      - 用例ID（自动生成）
      - 测试名称
@@ -334,12 +381,21 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
    - 查看所有测试报告列表
    - 查看报告详情（Markdown/JSON 格式）
 
+**XMind 导入功能**：
+- 使用 Element Plus 的 Upload 组件实现文件上传
+- 支持拖拽上传和点击上传
+- 文件类型验证（仅支持 .xmind）
+- 上传后自动解析并批量创建测试用例
+- 显示导入成功/失败的统计信息
+- 导入成功后自动刷新用例列表
+
 **技术实现**：
 - Vue 3 Composition API
 - Element Plus UI 组件库
 - Vue Router 路由管理
 - Axios HTTP 客户端
 - TypeScript 类型支持
+- Multer 文件上传中间件（后端）
 
 #### 3.2.9 数据库存储功能
 
@@ -376,6 +432,53 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 - 自动更新时间戳
 - 完善的索引优化查询性能
 
+#### 3.2.10 PRD 解析生成测试用例功能
+
+**功能描述**：
+从产品需求文档（PRD，Markdown 格式）自动生成测试用例，使用 AI 大模型分析 PRD 内容并生成全面的测试用例。
+
+**主要功能**：
+- 解析 Markdown 格式的 PRD 文档
+- 使用 AI 分析 PRD 中的功能需求
+- 自动生成测试用例（包括正常流程、异常流程、边界值测试等）
+- 保存 PRD 和生成的测试用例到数据库
+- 支持 PRD 和测试用例的关联管理
+
+**PRD 格式要求**：
+- 支持 Markdown 格式
+- 支持 Front Matter（YAML）元数据
+- 包含功能需求描述
+
+**生成的测试用例包含**：
+- 测试用例ID（自动生成）
+- 测试用例标题
+- 功能模块
+- 优先级（P0/P1/P2）
+- 测试类型（功能测试/性能测试/UI测试等）
+- 前置条件
+- 测试步骤
+- 预期结果
+- 入口URL（如果 PRD 中包含）
+- 环境（默认：测试环境）
+- 测试目的
+
+**API 接口**：
+- `POST /api/v1/prds` - 创建或更新 PRD
+- `GET /api/v1/prds` - 获取所有 PRD
+- `GET /api/v1/prds/:prdId` - 获取单个 PRD
+- `POST /api/v1/prds/:prdId/generate-test-cases` - 从 PRD 生成测试用例
+- `GET /api/v1/prds/:prdId/test-cases` - 获取 PRD 生成的测试用例
+
+**CLI 命令**：
+- `testflow prd-generate <file>` - 从 PRD 文件生成测试用例
+- `testflow prd-generate-string "<content>"` - 从 PRD 字符串生成测试用例
+
+**技术实现**：
+- 使用 PRDParser 解析 PRD 文档
+- 使用 AI 大模型（GLM-4.5）分析 PRD 并生成测试用例
+- 支持保存到 `prd_generated_test_cases` 表和 `test_cases` 表
+- 建立 PRD 与测试用例的关联关系
+
 ## 4. 技术架构
 
 ### 4.1 架构设计原则
@@ -390,7 +493,9 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 src/
 ├── core/                    # 核心功能模块
 │   ├── parser/              # 用例解析器
-│   │   └── caseParser.ts    # 支持 AI 和正则两种解析方式
+│   │   ├── caseParser.ts    # 主解析器（协调器）
+│   │   ├── markdownCaseParser.ts  # Markdown 解析器（支持 AI 和正则）
+│   │   └── xmindCaseParser.ts     # XMind 解析器
 │   └── runner/              # 测试执行器
 │       └── testRunner.ts    # 测试用例执行逻辑
 ├── adapters/                # 适配器层（便于扩展其他能力）
@@ -436,6 +541,8 @@ src/
 | OpenAI SDK | 4.77+ | AI API 调用（兼容 GLM-4.5） |
 | Commander | 12.1+ | CLI 命令行工具 |
 | gray-matter | 4.0+ | Markdown Front Matter 解析 |
+| jszip | 3.10+ | XMind 文件解压 |
+| multer | 2.0+ | 文件上传处理 |
 
 ### 4.4 数据流
 
@@ -574,6 +681,8 @@ npx playwright install
 ## 8. 未来规划
 
 ### 8.1 短期规划（1-3 个月）
+- [x] PRD 解析生成测试用例（已完成）
+- [x] XMind 文件解析功能（已完成）
 - [ ] 支持并行执行多个测试用例
 - [ ] 支持测试用例重试机制
 - [ ] 支持截图和视频录制
@@ -582,6 +691,7 @@ npx playwright install
 
 ### 8.2 中期规划（3-6 个月）
 - [x] 支持 Web UI 界面（已完成）
+- [x] 支持 XMind 文件导入（已完成）
 - [ ] 支持测试用例模板
 - [ ] 支持测试数据驱动
 - [ ] 支持多浏览器并行测试
@@ -635,6 +745,15 @@ npx playwright install
 
 ## 11. 更新日志
 
+### v1.2 (2024-12-16)
+- ✅ 新增 XMind 文件解析功能
+- ✅ 支持 XMind 文件上传和批量导入
+- ✅ 重构用例解析器，按文件类型拆分为多个解析器类
+- ✅ 新增 XMindCaseParser 专门处理 XMind 文件
+- ✅ 新增 MarkdownCaseParser 处理 Markdown 文件
+- ✅ Web UI 新增 XMind 文件导入功能
+- ✅ API 新增 `/api/v1/parse/xmind` 接口
+
 ### v1.1 (2024-12-15)
 - ✅ 新增 Web API 服务功能
 - ✅ 新增 Web UI 界面功能
@@ -644,4 +763,5 @@ npx playwright install
 - ✅ 新增环境字段支持（生产环境/预发布环境/测试环境）
 - ✅ 优化用例集执行逻辑（相同URL不重复打开）
 - ✅ 修复数据库参数类型错误
+- ✅ 新增 PRD 解析生成测试用例功能
 

@@ -2,6 +2,7 @@
 
 import { Command } from 'commander';
 import { runAllCommand, runFileCommand, runStringCommand } from './commands/runCommand.js';
+import { generateTestCasesFromPRDFile, generateTestCasesFromPRDString } from './commands/prdCommand.js';
 
 const program = new Command();
 
@@ -49,6 +50,32 @@ program
       entryUrl: options.entryUrl,
       outputDir: options.outputDir,
       format: options.format as 'markdown' | 'json' | 'both'
+    });
+  });
+
+program
+  .command('prd-generate')
+  .description('Generate test cases from PRD file')
+  .argument('<file>', 'Path to the PRD file (markdown format)')
+  .option('--prd-id <id>', 'PRD ID (optional, auto-generated if not provided)')
+  .option('--no-save', 'Do not save test cases to database')
+  .action(async (file, options) => {
+    await generateTestCasesFromPRDFile(file, {
+      prdId: options.prdId,
+      saveToDatabase: options.save !== false,
+    });
+  });
+
+program
+  .command('prd-generate-string')
+  .description('Generate test cases from PRD string content')
+  .argument('<content>', 'PRD content in markdown format')
+  .option('--prd-id <id>', 'PRD ID (optional, auto-generated if not provided)')
+  .option('--no-save', 'Do not save test cases to database')
+  .action(async (content, options) => {
+    await generateTestCasesFromPRDString(content, {
+      prdId: options.prdId,
+      saveToDatabase: options.save !== false,
     });
   });
 
