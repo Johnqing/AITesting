@@ -60,3 +60,31 @@ export async function listReports(req: Request, res: Response): Promise<void> {
     });
   }
 }
+
+/**
+ * 根据用例集执行ID获取测试报告
+ */
+export async function getExecutionReport(req: Request, res: Response): Promise<void> {
+  try {
+    const { executionId } = req.params;
+    
+    const result = await testReportService.getTestReportByExecutionId(executionId);
+    if (!result) {
+      res.status(404).json({
+        success: false,
+        error: '执行记录不存在',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+}

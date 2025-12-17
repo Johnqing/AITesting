@@ -29,13 +29,11 @@
             {{ formatSize(row.size) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250">
+        <el-table-column label="操作" width="150">
           <template #default="{ row }">
             <el-button size="small" type="primary" @click="viewDetailedReport(row.id)">
               查看详情
             </el-button>
-            <el-button size="small" @click="viewReport(row.id, 'json')">JSON</el-button>
-            <el-button size="small" @click="viewReport(row.id, 'markdown')">Markdown</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -406,32 +404,8 @@
               </div>
             </el-tab-pane>
 
-            <!-- JSON 数据 -->
-            <el-tab-pane label="JSON 数据" name="json">
-              <el-scrollbar height="600px">
-                <pre class="code-block">{{ JSON.stringify(currentAction, null, 2) }}</pre>
-              </el-scrollbar>
-            </el-tab-pane>
           </el-tabs>
         </div>
-      </el-dialog>
-
-      <!-- 原始报告对话框 -->
-      <el-dialog v-model="reportVisible" :title="`报告详情 - ${currentReportId}`" width="90%">
-        <el-tabs v-model="reportTab">
-          <el-tab-pane label="JSON" name="json">
-            <el-input
-              v-model="reportContent"
-              type="textarea"
-              :rows="20"
-              readonly
-              v-if="reportTab === 'json'"
-            />
-          </el-tab-pane>
-          <el-tab-pane label="Markdown" name="markdown">
-            <div class="markdown-content" v-html="markdownHtml" v-if="reportTab === 'markdown'"></div>
-          </el-tab-pane>
-        </el-tabs>
       </el-dialog>
     </el-card>
   </div>
@@ -445,12 +419,8 @@ import { listReports, getReport } from '@/api'
 
 const loading = ref(false)
 const reports = ref<any[]>([])
-const reportVisible = ref(false)
 const detailedReportVisible = ref(false)
 const currentReportId = ref('')
-const reportTab = ref('json')
-const reportContent = ref('')
-const markdownHtml = ref('')
 const reportData = ref<any>(null)
 const actionDetailVisible = ref(false)
 const currentAction = ref<any>(null)
@@ -483,29 +453,6 @@ const viewDetailedReport = async (reportId: string) => {
     // 计算操作类型统计
     calculateActionTypeStats()
     calculateDurationStats()
-  } catch (error: any) {
-    ElMessage.error(error.message || '加载报告失败')
-  }
-}
-
-const viewReport = async (reportId: string, format: string) => {
-  currentReportId.value = reportId
-  reportTab.value = format
-  reportVisible.value = true
-
-  try {
-    const response = await getReport(reportId, format)
-    if (format === 'markdown') {
-      markdownHtml.value = (response as string)
-        .replace(/\n/g, '<br>')
-        .replace(/## (.*?)(<br>|$)/g, '<h2>$1</h2>')
-        .replace(/# (.*?)(<br>|$)/g, '<h1>$1</h1>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    } else {
-      const data = typeof response === 'string' ? JSON.parse(response) : response
-      reportContent.value = JSON.stringify(data.data || data, null, 2)
-    }
   } catch (error: any) {
     ElMessage.error(error.message || '加载报告失败')
   }

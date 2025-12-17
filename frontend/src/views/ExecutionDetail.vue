@@ -4,10 +4,16 @@
       <template #header>
         <div class="card-header">
           <span>用例集执行详情 - {{ executionId }}</span>
-          <el-button @click="refreshExecution">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
+          <div>
+            <el-button type="primary" @click="viewReport" v-if="execution && execution.status === 'completed'">
+              <el-icon><Document /></el-icon>
+              查看报告
+            </el-button>
+            <el-button @click="refreshExecution">
+              <el-icon><Refresh /></el-icon>
+              刷新
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -179,11 +185,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh, Loading } from '@element-plus/icons-vue'
-import { useRoute } from 'vue-router'
+import { Refresh, Loading, Document } from '@element-plus/icons-vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getExecution } from '@/api'
 
 const route = useRoute()
+const router = useRouter()
 const executionId = ref('')
 const execution = ref<any>(null)
 const loading = ref(false)
@@ -272,6 +279,10 @@ const refreshExecution = () => {
 const handleViewCaseDetail = (row: any) => {
   currentCaseResult.value = row
   caseDetailVisible.value = true
+}
+
+const viewReport = () => {
+  router.push(`/executions/${executionId.value}/report`)
 }
 
 onMounted(() => {

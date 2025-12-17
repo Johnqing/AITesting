@@ -9,10 +9,14 @@
         <span class="subtitle">AI驱动的自动化测试平台</span>
       </div>
     </el-header>
-    <el-main class="app-main">
-      <NavMenu />
-      <router-view />
-    </el-main>
+    <el-container class="main-container">
+      <el-aside class="app-aside" width="200px">
+        <NavMenu />
+      </el-aside>
+      <el-main class="app-main">
+        <router-view />
+      </el-main>
+    </el-container>
   </el-container>
 </template>
 
@@ -55,9 +59,21 @@ import NavMenu from './components/NavMenu.vue'
   opacity: 0.9;
 }
 
+.main-container {
+  flex: 1;
+  overflow: hidden;
+}
+
+.app-aside {
+  background-color: #fff;
+  border-right: 1px solid #e4e7ed;
+  overflow-y: auto;
+}
+
 .app-main {
   background-color: #f5f7fa;
   padding: 24px;
+  overflow-y: auto;
 }
 </style>
 

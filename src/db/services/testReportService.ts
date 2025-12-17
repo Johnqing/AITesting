@@ -417,6 +417,185 @@ export class TestReportService {
       results: testResults,
     };
   }
+
+  /**
+   * 根据用例集执行记录生成测试报告
+   */
+  async getTestReportByExecutionId(executionId: string): Promise<{
+    execution: any;
+    suite: any;
+    report: TestReport | null;
+    evaluation: {
+      overall: 'excellent' | 'good' | 'fair' | 'poor';
+      passRate: number;
+      actionPassRate: number;
+      expectedResultMatchRate: number;
+      averageDuration: number;
+      recommendations: string[];
+    };
+  } | null> {
+    const { testSuiteService } = await import('./testSuiteService.js');
+    const { testCaseService } = await import('./testCaseService.js');
+
+    // 获取执行记录
+    const execution = await testSuiteService.getExecution(executionId);
+    if (!execution) {
+      return null;
+    }
+
+    // 获取用例集信息
+    const suite = await testSuiteService.getTestSuite(execution.suiteId);
+    if (!suite) {
+      return null;
+    }
+
+    // 加载所有测试结果
+    const testResults: TestResult[] = [];
+    if (execution.results) {
+      for (const result of execution.results) {
+        if (result.testResultId) {
+          // 通过 test_result_id 查找对应的测试结果
+          const testResultRow = await queryOne<{
+            id: string;
+            report_id: string;
+            test_case_id: string;
+            success: boolean;
+            start_time: Date;
+            end_time: Date;
+            duration: number;
+            error: string | null;
+          }>('SELECT * FROM test_results WHERE id = $1', [result.testResultId]);
+
+          if (testResultRow) {
+            // 获取报告ID
+            const reportRow = await queryOne<{ report_id: string }>(
+              'SELECT report_id FROM test_reports WHERE id = $1',
+              [testResultRow.report_id]
+            );
+
+            if (reportRow) {
+              // 获取完整的测试报告
+              const fullReport = await this.getTestReportByReportId(reportRow.report_id);
+              if (fullReport && fullReport.results) {
+                // 找到对应的测试结果
+                const matchingResult = fullReport.results.find(
+                  r => r.testCase.id === result.testCaseId
+                );
+                if (matchingResult) {
+                  testResults.push(matchingResult);
+                }
+              }
+            }
+          }
+        } else {
+          // 如果没有测试结果，创建一个失败的结果
+          const testCase = await testCaseService.getTestCaseById(result.testCaseId);
+          if (testCase) {
+            testResults.push({
+              testCase,
+              success: result.status === 'success',
+              startTime: result.startTime || new Date(),
+              endTime: result.endTime || new Date(),
+              duration: result.duration || 0,
+              error: result.error,
+              actionResults: [],
+              expectedResultsCheck: [],
+            });
+          }
+        }
+      }
+    }
+
+    // 生成测试报告
+    const report: TestReport = {
+      total: execution.totalCases,
+      passed: execution.passedCases,
+      failed: execution.failedCases,
+      duration: execution.duration || 0,
+      startTime: execution.startTime || new Date(),
+      endTime: execution.endTime || new Date(),
+      results: testResults,
+    };
+
+    // 计算摘要
+    const totalActions = testResults.reduce((sum, r) => sum + (r.summary?.totalActions || 0), 0);
+    const passedActions = testResults.reduce((sum, r) => sum + (r.summary?.passedActions || 0), 0);
+    const failedActions = testResults.reduce((sum, r) => sum + (r.summary?.failedActions || 0), 0);
+    const totalExpectedResults = testResults.reduce(
+      (sum, r) => sum + (r.summary?.totalExpectedResults || 0),
+      0
+    );
+    const matchedExpectedResults = testResults.reduce(
+      (sum, r) => sum + (r.summary?.matchedExpectedResults || 0),
+      0
+    );
+
+    report.summary = {
+      totalActions,
+      passedActions,
+      failedActions,
+      totalExpectedResults,
+      matchedExpectedResults,
+      unmatchedExpectedResults: totalExpectedResults - matchedExpectedResults,
+    };
+
+    // 生成综合评价
+    const passRate = report.total > 0 ? (report.passed / report.total) * 100 : 0;
+    const actionPassRate =
+      totalActions > 0 ? (passedActions / totalActions) * 100 : 0;
+    const expectedResultMatchRate =
+      totalExpectedResults > 0 ? (matchedExpectedResults / totalExpectedResults) * 100 : 0;
+    const averageDuration =
+      testResults.length > 0
+        ? testResults.reduce((sum, r) => sum + r.duration, 0) / testResults.length
+        : 0;
+
+    // 确定整体评价等级
+    let overall: 'excellent' | 'good' | 'fair' | 'poor';
+    if (passRate >= 95 && actionPassRate >= 95 && expectedResultMatchRate >= 95) {
+      overall = 'excellent';
+    } else if (passRate >= 80 && actionPassRate >= 80 && expectedResultMatchRate >= 80) {
+      overall = 'good';
+    } else if (passRate >= 60 && actionPassRate >= 60 && expectedResultMatchRate >= 60) {
+      overall = 'fair';
+    } else {
+      overall = 'poor';
+    }
+
+    // 生成建议
+    const recommendations: string[] = [];
+    if (passRate < 100) {
+      recommendations.push(`有 ${report.failed} 个测试用例失败，建议检查失败用例的具体原因`);
+    }
+    if (actionPassRate < 100) {
+      recommendations.push(`有 ${failedActions} 个操作失败，建议检查操作执行日志`);
+    }
+    if (expectedResultMatchRate < 100) {
+      recommendations.push(
+        `有 ${totalExpectedResults - matchedExpectedResults} 个预期结果未匹配，建议检查预期结果设置`
+      );
+    }
+    if (averageDuration > 30000) {
+      recommendations.push(`平均执行时间较长（${(averageDuration / 1000).toFixed(2)}秒），建议优化测试用例`);
+    }
+    if (recommendations.length === 0) {
+      recommendations.push('测试执行情况良好，所有指标均达到预期');
+    }
+
+    return {
+      execution,
+      suite,
+      report,
+      evaluation: {
+        overall,
+        passRate,
+        actionPassRate,
+        expectedResultMatchRate,
+        averageDuration,
+        recommendations,
+      },
+    };
+  }
 }
 
 export const testReportService = new TestReportService();

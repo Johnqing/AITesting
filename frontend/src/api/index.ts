@@ -117,6 +117,7 @@ export const deleteTestSuite = (suiteId: string) => api.delete(`/test-suites/${s
 export const executeTestSuite = (suiteId: string) => api.post(`/test-suites/${suiteId}/execute`)
 export const getSuiteExecutions = (suiteId: string) => api.get(`/test-suites/${suiteId}/executions`)
 export const getExecution = (executionId: string) => api.get(`/executions/${executionId}`)
+export const getExecutionReport = (executionId: string) => api.get(`/executions/${executionId}/report`)
 
 // PRD 接口
 export const getAllPRDs = () => api.get('/prds')

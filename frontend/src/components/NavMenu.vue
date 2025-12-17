@@ -2,7 +2,7 @@
   <el-menu
     :default-active="activeIndex"
     class="nav-menu"
-    mode="horizontal"
+    mode="vertical"
     router
     :ellipsis="false"
   >
@@ -50,8 +50,8 @@ const activeIndex = computed(() => {
 
 <style scoped>
 .nav-menu {
-  border-bottom: 1px solid #e4e7ed;
-  margin-bottom: 20px;
+  border-right: none;
+  height: 100%;
 }
 </style>
 
