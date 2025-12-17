@@ -32,9 +32,10 @@
             {{ formatTime(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="300" fixed="right">
+        <el-table-column label="操作" width="380" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" @click="handleView(row)">查看</el-button>
+            <el-button size="small" @click="handleExportMarkdown(row)">导出</el-button>
             <el-button size="small" type="success" @click="handleGenerate(row)">生成用例</el-button>
             <el-button size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
@@ -141,6 +142,7 @@
       </div>
       <template #footer>
         <el-button @click="viewDialogVisible = false">关闭</el-button>
+        <el-button @click="handleExportMarkdown(currentPRD)" v-if="currentPRD">导出Markdown</el-button>
         <el-button type="primary" @click="handleGenerateFromView">生成测试用例</el-button>
       </template>
     </el-dialog>
@@ -221,7 +223,9 @@ import {
   deletePRD,
   generateTestCasesFromPRD,
   getPRDGeneratedTestCases,
+  exportPRDAsMarkdownFile,
 } from '@/api'
+import { renderMarkdown } from '@/utils/markdown'
 
 const router = useRouter()
 
@@ -293,16 +297,6 @@ const formatTime = (time?: Date | string) => {
   return new Date(time).toLocaleString('zh-CN')
 }
 
-const renderMarkdown = (content: string) => {
-  // 简单的 Markdown 渲染（可以使用 markdown-it 等库）
-  return content
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/\n/g, '<br>')
-}
 
 const getGeneratedCaseCount = (prdId: string) => {
   return generatedCaseCounts.value[prdId] || 0
@@ -368,6 +362,15 @@ const handleEdit = (row: any) => {
 const handleView = (row: any) => {
   currentPRD.value = row
   viewDialogVisible.value = true
+}
+
+const handleExportMarkdown = async (row: any) => {
+  try {
+    await exportPRDAsMarkdownFile(row.prdId)
+    ElMessage.success('导出成功')
+  } catch (error: any) {
+    ElMessage.error(error.message || '导出失败')
+  }
 }
 
 const handleSubmit = async () => {
@@ -491,56 +494,126 @@ onMounted(() => {
   line-height: 1.8;
 }
 
-.markdown-content h1,
-.markdown-content h2,
-.markdown-content h3 {
+.markdown-content :deep(h1) {
+  font-size: 28px;
+  font-weight: 600;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e4e7ed;
+}
+
+.markdown-content :deep(h2) {
+  font-size: 24px;
+  font-weight: 600;
   margin-top: 20px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.markdown-content :deep(h3) {
+  font-size: 20px;
+  font-weight: 600;
+  margin-top: 16px;
   margin-bottom: 10px;
 }
 
-.markdown-content h1 {
-  font-size: 24px;
-  border-bottom: 2px solid #e4e7ed;
-  padding-bottom: 10px;
-}
-
-.markdown-content h2 {
-  font-size: 20px;
-  border-bottom: 1px solid #e4e7ed;
-  padding-bottom: 8px;
-}
-
-.markdown-content h3 {
+.markdown-content :deep(h4) {
   font-size: 18px;
+  font-weight: 600;
+  margin-top: 14px;
+  margin-bottom: 8px;
 }
 
-.markdown-content ul,
-.markdown-content ol {
-  margin: 10px 0;
+.markdown-content :deep(p) {
+  margin-bottom: 12px;
+  line-height: 1.8;
+}
+
+.markdown-content :deep(ul),
+.markdown-content :deep(ol) {
+  margin-bottom: 12px;
   padding-left: 30px;
 }
 
-.markdown-content li {
-  margin: 5px 0;
+.markdown-content :deep(li) {
+  margin-bottom: 6px;
+  line-height: 1.8;
 }
 
-.markdown-content code {
-  background-color: #f5f5f5;
+.markdown-content :deep(blockquote) {
+  border-left: 4px solid #409eff;
+  padding-left: 16px;
+  margin: 16px 0;
+  color: #666;
+  background: #f5f7fa;
+  padding: 12px 16px;
+}
+
+.markdown-content :deep(code) {
+  background: #f5f7fa;
   padding: 2px 6px;
   border-radius: 3px;
-  font-family: 'Courier New', monospace;
+  font-family: 'Courier New', 'Monaco', 'Consolas', monospace;
+  font-size: 0.9em;
+  color: #e83e8c;
 }
 
-.markdown-content pre {
-  background-color: #f5f5f5;
-  padding: 15px;
-  border-radius: 5px;
+.markdown-content :deep(pre) {
+  background: #f5f7fa;
+  padding: 16px;
+  border-radius: 4px;
   overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid #e4e7ed;
 }
 
-.markdown-content pre code {
-  background-color: transparent;
+.markdown-content :deep(pre code) {
+  background: transparent;
   padding: 0;
+  color: #333;
+  font-size: 14px;
+}
+
+.markdown-content :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.markdown-content :deep(th),
+.markdown-content :deep(td) {
+  border: 1px solid #e4e7ed;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.markdown-content :deep(th) {
+  background: #f5f7fa;
+  font-weight: 600;
+}
+
+.markdown-content :deep(hr) {
+  border: none;
+  border-top: 1px solid #e4e7ed;
+  margin: 24px 0;
+}
+
+.markdown-content :deep(a) {
+  color: #409eff;
+  text-decoration: none;
+}
+
+.markdown-content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.markdown-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 16px 0;
 }
 </style>
 

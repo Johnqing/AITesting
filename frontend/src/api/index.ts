@@ -129,4 +129,70 @@ export const generateTestCasesFromPRD = (prdId: string, saveToDatabase: boolean 
   api.post(`/prds/${prdId}/generate-test-cases`, { saveToDatabase })
 export const getPRDGeneratedTestCases = (prdId: string) => api.get(`/prds/${prdId}/test-cases`)
 export const uploadPRDFile = (data: { filePath: string }) => api.post('/prds/upload', data)
+export const exportPRDAsMarkdownFile = async (prdId: string) => {
+  // 使用相对路径，通过代理访问
+  const response = await fetch(`/api/v1/prds/${prdId}/export`)
+  if (!response.ok) {
+    throw new Error(`导出失败: ${response.statusText}`)
+  }
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  const contentDisposition = response.headers.get('Content-Disposition')
+  if (contentDisposition) {
+    const fileNameMatch = contentDisposition.match(/filename="?(.+?)"?$/)
+    if (fileNameMatch) {
+      a.download = decodeURIComponent(fileNameMatch[1])
+    }
+  } else {
+    a.download = `PRD-${prdId}.md`
+  }
+  document.body.appendChild(a)
+  a.click()
+  window.URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+}
+
+// PRD 生成接口
+export const startPRDGeneration = (data: { requirement: string; title?: string }) =>
+  api.post('/prd/generate', data)
+export const getGenerationStatus = (taskId: string) =>
+  api.get(`/prd/generate/${taskId}/status`)
+export const continueConversation = (taskId: string, response: string) =>
+  api.post(`/prd/generate/${taskId}/continue`, { response })
+export const getMessages = (taskId: string) =>
+  api.get(`/prd/generate/${taskId}/messages`)
+export const getGenerationResult = (taskId: string) =>
+  api.get(`/prd/generate/${taskId}/result`)
+export const getSchema = (taskId: string) =>
+  api.get(`/prd/generate/${taskId}/schema`)
+export const saveGeneratedPRD = (taskId: string, data?: { title?: string; description?: string; version?: string; status?: string; author?: string; prdContent?: string }) =>
+  api.post(`/prd/generate/${taskId}/save`, data || {})
+export const regenerateParagraph = (taskId: string, data: { sectionTitle: string; context?: string }) =>
+  api.post(`/prd/generate/${taskId}/regenerate-paragraph`, data)
+export const exportPRDAsMarkdown = async (taskId: string) => {
+  // 使用相对路径，通过代理访问
+  const response = await fetch(`/api/v1/prd/generate/${taskId}/export`)
+  if (!response.ok) {
+    throw new Error(`导出失败: ${response.statusText}`)
+  }
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  const contentDisposition = response.headers.get('Content-Disposition')
+  if (contentDisposition) {
+    const fileNameMatch = contentDisposition.match(/filename="?(.+?)"?$/)
+    if (fileNameMatch) {
+      a.download = decodeURIComponent(fileNameMatch[1])
+    }
+  } else {
+    a.download = `PRD-${taskId}.md`
+  }
+  document.body.appendChild(a)
+  a.click()
+  window.URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+}
 

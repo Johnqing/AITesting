@@ -17,6 +17,9 @@
     "test:api": "npx vitest run src/server/__tests__",
     "test:api:watch": "npx vitest watch src/server/__tests__",
     "test:api:ui": "npx vitest --ui",
+    "test:prd": "tsx scripts/test-prd-generation-auto.ts",
+    "test:prd:quick": "tsx scripts/test-prd-generation-quick.ts",
+    "test:prd:complete": "tsx scripts/test-prd-generation-complete.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:verify": "tsx scripts/verify-tables.ts"
   },

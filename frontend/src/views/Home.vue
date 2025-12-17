@@ -44,6 +44,15 @@
                 </el-card>
             </el-col>
             <el-col :xs="24" :sm="12" :md="6">
+                <el-card class="feature-card" shadow="hover" @click="$router.push('/prd-generation')">
+                    <el-icon :size="40" color="#9C27B0">
+                        <MagicStick />
+                    </el-icon>
+                    <h3>PRD自动生成</h3>
+                    <p>AI自动生成产品需求文档</p>
+                </el-card>
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="6">
                 <el-card class="feature-card" shadow="hover" @click="$router.push('/prds')">
                     <el-icon :size="40" color="#F56C6C">
                         <DocumentChecked />
@@ -69,7 +78,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Document, DocumentCopy, Folder, DocumentChecked } from '@element-plus/icons-vue'
+import { Document, DocumentCopy, Folder, DocumentChecked, MagicStick } from '@element-plus/icons-vue'
 import { getApiInfo } from '@/api'
 
 const apiInfo = ref<any>(null)

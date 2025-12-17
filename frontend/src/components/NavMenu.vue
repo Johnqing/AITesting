@@ -39,6 +39,10 @@
         <el-icon><DocumentChecked /></el-icon>
         <span>需求管理</span>
       </template>
+      <el-menu-item index="/prd-generation">
+        <el-icon><MagicStick /></el-icon>
+        <span>PRD自动生成</span>
+      </el-menu-item>
       <el-menu-item index="/prds">
         <el-icon><DocumentChecked /></el-icon>
         <span>PRD管理</span>
@@ -57,7 +61,8 @@ import {
   Document, 
   Folder, 
   DocumentChecked,
-  FolderOpened
+  FolderOpened,
+  MagicStick
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -68,6 +73,10 @@ const activeIndex = computed(() => {
       return '/reports'
     }
     return '/test-suites'
+  }
+  // 如果路径是 /prd-edit/:taskId，返回PRD自动生成页面
+  if (route.path.startsWith('/prd-edit/')) {
+    return '/prd-generation'
   }
   return route.path
 })

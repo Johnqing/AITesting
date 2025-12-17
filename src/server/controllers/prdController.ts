@@ -186,21 +186,76 @@ export async function getGeneratedTestCases(req: Request, res: Response): Promis
 }
 
 /**
- * 从文件上传并解析 PRD
+ * 导出PRD为Markdown文件
+ * GET /api/v1/prds/:prdId/export
  */
-export async function uploadPRDFile(req: Request, res: Response): Promise<void> {
+export async function exportPRDAsMarkdown(req: Request, res: Response): Promise<void> {
   try {
-    const { filePath } = req.body;
-
-    if (!filePath) {
+    const { prdId } = req.params;
+    if (!prdId) {
       res.status(400).json({
         success: false,
-        error: '文件路径不能为空',
+        error: 'PRD ID 不能为空',
       });
       return;
     }
 
-    const prd = await prdService.parseAndSavePRDFromFile(filePath);
+    const prd = await prdService.getPRDById(prdId);
+    if (!prd) {
+      res.status(404).json({
+        success: false,
+        error: 'PRD 不存在',
+      });
+      return;
+    }
+
+    const fileName = prd.title 
+      ? `${prd.title.replace(/[^\w\s-]/g, '')}.md`
+      : `PRD-${prdId}.md`;
+
+    // 设置响应头，让浏览器下载文件
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.send(prd.content);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message || '导出失败',
+    });
+  }
+}
+
+/**
+ * 从文件上传并解析 PRD（支持 multipart/form-data）
+ */
+export async function uploadPRDFile(req: Request, res: Response): Promise<void> {
+  try {
+    const file = (req as any).file;
+    
+    if (!file) {
+      res.status(400).json({
+        success: false,
+        error: '请上传 PRD 文件',
+      });
+      return;
+    }
+
+    // 检查文件类型
+    const fileName = file.originalname.toLowerCase();
+    if (!fileName.endsWith('.md') && !fileName.endsWith('.markdown')) {
+      res.status(400).json({
+        success: false,
+        error: '文件必须是 .md 或 .markdown 格式',
+      });
+      return;
+    }
+
+    // 将文件内容转换为字符串
+    const content = file.buffer.toString('utf-8');
+
+    // 解析并保存 PRD
+    const prd = await prdService.parseAndSavePRDFromContent(content);
+    
     res.json({
       success: true,
       data: prd,
