@@ -17,6 +17,10 @@
 - 🎯 测试用例集管理（创建、执行、记录查看）
 - 🌍 环境管理（生产环境/预发布环境/测试环境）
 - 📋 **PRD 解析生成测试用例**（从产品需求文档自动生成测试用例）
+- 🔍 **智能元素匹配**（支持关键词提取和多种匹配策略）
+- 🚫 **默认移除用户缓存**（每次测试运行在全新的浏览器上下文中）
+- ✅ **预期结果自动匹配**（支持精确匹配、部分匹配、包含匹配）
+- 🏥 **健康检查接口**（系统状态监控）
 
 ## 快速开始
 
@@ -232,20 +236,42 @@ testflow prd-generate-string "$(cat PRD.md)"
 
 ```bash
 # 从字符串运行测试用例
-testflow run-string "$(cat case/05-login.md)" -u "https://example.com"
+testflow run-string "$(cat case/登录测试用例.md)" -u "https://example.com"
 
 # 或者直接传入用例内容
-testflow run-string "# 测试模块
+testflow run-string "# 登录模块
 
-## TC-TEST-001: 测试用例
-**功能模块**: 测试
+## 模块说明
+登录功能测试
+
+## 测试页面的入口url
+* https://example.com
+
+---
+
+## TC-LOGIN-001: 正常登录
+
+**功能模块**: 登录模块
 **优先级**: P0
 **测试类型**: 功能测试
+
+**前置条件**:
+- 系统正常运行
+- 已存在有效的测试账号和密码
+- 浏览器已打开
+
 **测试步骤**:
-1. 导航到首页
-2. 点击登录按钮
+1. 导航到登录页面
+2. 在账号输入框中输入有效的账号
+3. 在密码输入框中输入对应的密码
+4. 点击登录按钮
+
 **预期结果**:
-- 成功跳转到登录页面"
+- 页面正常加载，显示登录界面
+- 账号和密码输入框正常显示
+- 登录按钮可点击
+- 输入账号和密码后，点击登录按钮能够成功登录
+- 登录成功后跳转到系统主页面"
 ```
 
 ## 测试用例格式
@@ -265,24 +291,54 @@ testflow run-string "# 测试模块
 
 ---
 
-## TC-TEST-001: 测试用例标题
+## TC-XXX-001: 测试用例标题
 
 **功能模块**: 模块名称
 **优先级**: P0
 **测试类型**: 功能测试
 
 **前置条件**:
-- 条件1
-- 条件2
+- 系统正常运行
+- 已存在有效的测试账号和密码
+- 浏览器已打开
 
 **测试步骤**:
-1. 步骤1
-2. 步骤2
-3. 步骤3
+1. 导航到 https://example.com/login
+2. 在"请输入账号"输入框中输入 username
+3. 在"请输入密码"输入框中输入 password
+4. 点击登录按钮
 
 **预期结果**:
-- 结果1
-- 结果2
+- 页面正常加载，显示登录界面
+- 账号和密码输入框正常显示
+- 登录按钮可点击
+- 输入账号和密码后，点击登录按钮能够成功登录
+- 登录成功后跳转到系统主页面
+
+---
+
+## TC-XXX-002: 账号为空时登录
+
+**功能模块**: 模块名称
+**优先级**: P1
+**测试类型**: 功能测试
+
+**前置条件**:
+- 系统正常运行
+- 浏览器已打开
+- 已打开登录页面
+
+**测试步骤**:
+1. 导航到登录页面
+2. 账号输入框保持为空
+3. 在密码输入框中输入密码
+4. 点击登录按钮
+
+**预期结果**:
+- 账号输入框为空
+- 密码输入框有输入内容
+- 点击登录按钮后，系统提示账号不能为空
+- 登录失败，停留在登录页面
 ```
 
 ### 测试用例字段说明
@@ -432,6 +488,8 @@ testflow/
 4. **网络连接**: 需要网络连接以访问 AI API 和下载 MCP 服务器
 5. **浏览器**: 确保已安装 Playwright 浏览器驱动（运行 `npx playwright install`）
 6. **端口占用**: 确保端口 3000（后端）和 5174（前端）未被占用
+7. **用户缓存**: 系统默认移除用户缓存，每次测试运行在全新的浏览器上下文中，确保测试的独立性和可重复性
+8. **元素定位**: 测试用例中应使用页面上的可见文本内容（如"账号"、"密码"、"登录"）而非 CSS 选择器，系统会自动匹配元素
 
 ## 故障排除
 
@@ -452,22 +510,73 @@ testflow/
 
 详细的 API 文档请参考 [API.md](./API.md)
 
-主要 API 端点：
+### 主要 API 端点
+
+#### 健康检查
+- `GET /health` - 健康状态检查
+- `GET /api/v1/info` - API 信息
+
+#### 测试用例管理
 - `GET /api/v1/test-cases` - 获取所有测试用例
+- `GET /api/v1/test-cases/:caseId` - 获取单个测试用例
 - `POST /api/v1/test-cases` - 创建测试用例
+- `PUT /api/v1/test-cases/:caseId` - 更新测试用例
+- `DELETE /api/v1/test-cases/:caseId` - 删除测试用例
+
+#### 测试用例集管理
 - `GET /api/v1/test-suites` - 获取所有用例集
+- `GET /api/v1/test-suites/:suiteId` - 获取单个用例集
+- `POST /api/v1/test-suites` - 创建用例集
+- `PUT /api/v1/test-suites/:suiteId` - 更新用例集
+- `DELETE /api/v1/test-suites/:suiteId` - 删除用例集
 - `POST /api/v1/test-suites/:suiteId/execute` - 执行用例集
+- `GET /api/v1/test-suites/:suiteId/executions` - 获取用例集执行记录
+- `GET /api/v1/executions/:executionId` - 获取执行详情
+
+#### 测试报告管理
 - `GET /api/v1/reports` - 获取所有测试报告
-- `POST /api/v1/parse/xmind` - 上传并解析 XMind 文件
+- `GET /api/v1/reports/:reportId` - 获取单个测试报告
+
+#### 用例解析
+- `POST /api/v1/parse/file` - 解析测试用例文件（支持 .md 和 .xmind）
+- `POST /api/v1/parse/string` - 解析测试用例字符串
+- `POST /api/v1/parse/directory` - 解析目录
+- `POST /api/v1/parse/xmind` - 上传并解析 XMind 文件（multipart/form-data）
+
+#### 测试执行
+- `POST /api/v1/run/all` - 运行所有测试用例
+- `POST /api/v1/run/file` - 运行单个测试用例文件
+- `POST /api/v1/run/testcase` - 运行单个测试用例对象
+- `POST /api/v1/run/string` - 运行用例字符串
+
+#### PRD 管理
+- `GET /api/v1/prds` - 获取所有 PRD
+- `GET /api/v1/prds/:prdId` - 获取单个 PRD
+- `POST /api/v1/prds` - 创建或更新 PRD
+- `PUT /api/v1/prds/:prdId` - 更新 PRD
+- `DELETE /api/v1/prds/:prdId` - 删除 PRD
+- `POST /api/v1/prds/upload` - 上传 PRD 文件（multipart/form-data）
+- `POST /api/v1/prds/:prdId/generate-test-cases` - 从 PRD 生成测试用例
+- `GET /api/v1/prds/:prdId/test-cases` - 获取 PRD 生成的测试用例
 
 ## 数据库
 
 系统使用 PostgreSQL 数据库存储数据，主要数据表：
-- `test_cases` - 测试用例表
+- `test_cases` - 测试用例表（支持 system 和 test_objective 字段）
 - `test_reports` - 测试报告表
+- `test_report_summaries` - 测试报告摘要表
 - `test_results` - 测试结果表
+- `test_result_summaries` - 测试结果摘要表
+- `action_results` - 操作结果表
+- `expected_result_checks` - 预期结果检查表
 - `test_suites` - 测试用例集表
+- `test_suite_cases` - 用例集与测试用例关联表
 - `test_suite_executions` - 用例集执行记录表
+- `test_suite_execution_results` - 用例集执行结果表
+- `prds` - PRD 表
+- `prd_reviews` - PRD 评审表
+- `prd_test_cases` - PRD 与测试用例关联表
+- `prd_generated_test_cases` - PRD 生成的测试用例表
 
 ## 依赖
 

@@ -46,6 +46,8 @@ interface TestCase {
   steps: string[];               // 测试步骤列表
   expectedResults: string[];     // 预期结果列表
   entryUrl?: string;             // 入口URL（可选）
+  system?: string;               // 环境（生产环境/预发布环境/测试环境）（可选）
+  testObjective?: string;        // 测试目的（可选）
 }
 ```
 
@@ -75,6 +77,15 @@ interface TestResult {
   duration: number;             // 耗时（毫秒）
   actionResults: ActionResult[]; // 操作结果列表
   error?: string;               // 错误信息（如有）
+  expectedResultsCheck?: ExpectedResultCheck[]; // 预期结果检查列表（可选）
+  summary?: {                    // 执行摘要（可选）
+    totalActions: number;       // 总操作数
+    passedActions: number;       // 通过操作数
+    failedActions: number;       // 失败操作数
+    totalExpectedResults: number; // 总预期结果数
+    matchedExpectedResults: number; // 匹配的预期结果数
+    unmatchedExpectedResults: number; // 未匹配的预期结果数
+  };
 }
 ```
 
@@ -87,9 +98,15 @@ interface ActionResult {
   action: {
     type: string;               // 操作类型
     description: string;         // 操作描述
+    selector?: string;          // 选择器（可选）
+    url?: string;                // URL（可选）
+    text?: string;               // 文本内容（可选）
+    timeout?: number;            // 超时时间（可选）
+    expected?: string;           // 预期结果（可选）
   };
   result: ExecutionResult;      // 执行结果
   timestamp: Date;              // 时间戳
+  duration?: number;            // 操作耗时（毫秒，可选）
 }
 ```
 
@@ -103,6 +120,19 @@ interface ExecutionResult {
   message: string;              // 消息
   error?: string;               // 错误信息（如有）
   screenshot?: string;           // 截图（如有）
+}
+```
+
+### ExpectedResultCheck
+
+预期结果检查结果。
+
+```typescript
+interface ExpectedResultCheck {
+  expected: string;             // 预期结果描述
+  actual: string;               // 实际结果
+  matched: boolean;             // 是否匹配
+  matchType: 'exact' | 'partial' | 'contains' | 'not_matched'; // 匹配类型
 }
 ```
 
@@ -528,6 +558,11 @@ async convertTestCaseToActions(testCase: TestCase): Promise<PlaywrightAction[]>
 **返回值：**
 - `Promise<PlaywrightAction[]>`: Playwright 操作序列
 
+**转换规则**：
+- 优先使用文本选择器：对于 fill 和 click 操作，使用页面上的可见文本内容（如标签文本"账号"、"密码"，或按钮文本"登录"），而不是 CSS 选择器
+- 系统会通过页面快照匹配元素，所以 selector 必须是页面上实际显示的文本内容
+- 例如：填写账号输入框时，使用 selector: "账号" 而不是 selector: "input[placeholder='请输入账号']"
+
 **示例：**
 ```typescript
 const actions = await aiClient.convertTestCaseToActions(testCase);
@@ -661,11 +696,844 @@ reporter.printSummary(report);
 
 ---
 
+## Web API 接口
+
+### 健康检查接口
+
+#### GET /health
+
+健康状态检查接口。
+
+**响应示例**：
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-12-17T10:23:49.000Z"
+}
+```
+
+#### GET /api/v1/info
+
+API 信息接口。
+
+**响应示例**：
+```json
+{
+  "name": "TestFlow API",
+  "version": "1.0.0",
+  "description": "AI-driven Playwright automation testing system API"
+}
+```
+
+### 测试用例管理接口
+
+#### GET /api/v1/test-cases
+
+获取所有测试用例。
+
+**查询参数**（可选）：
+- `system` (string): 环境筛选（生产环境/预发布环境/测试环境）
+- `module` (string): 模块筛选
+- `priority` (string): 优先级筛选（P0/P1/P2）
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "caseId": "TC-LOGIN-001",
+      "title": "登录功能测试",
+      "module": "登录模块",
+      "priority": "P0",
+      "testType": "功能测试",
+      "entryUrl": "https://example.com/login",
+      "system": "测试环境",
+      "testObjective": "验证用户登录功能",
+      "preconditions": ["条件1", "条件2"],
+      "steps": ["步骤1", "步骤2"],
+      "expectedResults": ["结果1", "结果2"],
+      "createdAt": "2024-12-17T10:00:00.000Z",
+      "updatedAt": "2024-12-17T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+#### GET /api/v1/test-cases/:caseId
+
+获取单个测试用例。
+
+**路径参数**：
+- `caseId` (string): 测试用例ID
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "caseId": "TC-LOGIN-001",
+    "title": "登录功能测试",
+    "module": "登录模块",
+    "priority": "P0",
+    "testType": "功能测试",
+    "entryUrl": "https://example.com/login",
+    "system": "测试环境",
+    "testObjective": "验证用户登录功能",
+    "preconditions": ["条件1", "条件2"],
+    "steps": ["步骤1", "步骤2"],
+    "expectedResults": ["结果1", "结果2"],
+    "createdAt": "2024-12-17T10:00:00.000Z",
+    "updatedAt": "2024-12-17T10:00:00.000Z"
+  }
+}
+```
+
+#### POST /api/v1/test-cases
+
+创建测试用例。
+
+**请求体**：
+```json
+{
+  "title": "登录功能测试",
+  "module": "登录模块",
+  "priority": "P0",
+  "testType": "功能测试",
+  "entryUrl": "https://example.com/login",
+  "system": "测试环境",
+  "testObjective": "验证用户登录功能",
+  "preconditions": ["条件1", "条件2"],
+  "steps": ["步骤1", "步骤2"],
+  "expectedResults": ["结果1", "结果2"]
+}
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "caseId": "TC-LOGIN-001",
+    "title": "登录功能测试",
+    ...
+  }
+}
+```
+
+#### PUT /api/v1/test-cases/:caseId
+
+更新测试用例。
+
+**路径参数**：
+- `caseId` (string): 测试用例ID
+
+**请求体**：同 POST /api/v1/test-cases
+
+**响应示例**：同 POST /api/v1/test-cases
+
+#### DELETE /api/v1/test-cases/:caseId
+
+删除测试用例。
+
+**路径参数**：
+- `caseId` (string): 测试用例ID
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "message": "测试用例已删除"
+}
+```
+
+### 测试用例集管理接口
+
+#### GET /api/v1/test-suites
+
+获取所有用例集。
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "suiteId": "SUITE-001",
+      "name": "登录功能测试集",
+      "description": "包含所有登录相关的测试用例",
+      "system": "测试环境",
+      "createdBy": "admin",
+      "testCases": [
+        {
+          "id": "uuid",
+          "caseId": "TC-LOGIN-001",
+          "title": "登录功能测试",
+          ...
+        }
+      ],
+      "createdAt": "2024-12-17T10:00:00.000Z",
+      "updatedAt": "2024-12-17T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+#### GET /api/v1/test-suites/:suiteId
+
+获取单个用例集。
+
+**路径参数**：
+- `suiteId` (string): 用例集ID
+
+**响应示例**：同 GET /api/v1/test-suites（单个对象）
+
+#### POST /api/v1/test-suites
+
+创建用例集。
+
+**请求体**：
+```json
+{
+  "name": "登录功能测试集",
+  "description": "包含所有登录相关的测试用例",
+  "system": "测试环境",
+  "createdBy": "admin",
+  "testCaseIds": ["uuid1", "uuid2"]
+}
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "suiteId": "SUITE-001",
+    "name": "登录功能测试集",
+    ...
+  }
+}
+```
+
+#### PUT /api/v1/test-suites/:suiteId
+
+更新用例集。
+
+**路径参数**：
+- `suiteId` (string): 用例集ID
+
+**请求体**：同 POST /api/v1/test-suites
+
+**响应示例**：同 POST /api/v1/test-suites
+
+#### DELETE /api/v1/test-suites/:suiteId
+
+删除用例集。
+
+**路径参数**：
+- `suiteId` (string): 用例集ID
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "message": "用例集已删除"
+}
+```
+
+#### POST /api/v1/test-suites/:suiteId/execute
+
+执行用例集。
+
+**路径参数**：
+- `suiteId` (string): 用例集ID
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "executionId": "EXEC-001",
+    "suiteId": "SUITE-001",
+    "status": "running",
+    "startTime": "2024-12-17T10:00:00.000Z"
+  }
+}
+```
+
+#### GET /api/v1/test-suites/:suiteId/executions
+
+获取用例集执行记录。
+
+**路径参数**：
+- `suiteId` (string): 用例集ID
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "executionId": "EXEC-001",
+      "suiteId": "SUITE-001",
+      "status": "completed",
+      "startTime": "2024-12-17T10:00:00.000Z",
+      "endTime": "2024-12-17T10:05:00.000Z",
+      "duration": 300000,
+      "totalCases": 10,
+      "passedCases": 8,
+      "failedCases": 2
+    }
+  ]
+}
+```
+
+#### GET /api/v1/executions/:executionId
+
+获取执行详情。
+
+**路径参数**：
+- `executionId` (string): 执行ID
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "executionId": "EXEC-001",
+    "suiteId": "SUITE-001",
+    "status": "completed",
+    "startTime": "2024-12-17T10:00:00.000Z",
+    "endTime": "2024-12-17T10:05:00.000Z",
+    "duration": 300000,
+    "totalCases": 10,
+    "passedCases": 8,
+    "failedCases": 2,
+    "results": [
+      {
+        "testCase": {
+          "id": "uuid",
+          "caseId": "TC-LOGIN-001",
+          "title": "登录功能测试"
+        },
+        "status": "success",
+        "startTime": "2024-12-17T10:00:00.000Z",
+        "endTime": "2024-12-17T10:01:00.000Z",
+        "duration": 60000
+      }
+    ]
+  }
+}
+```
+
+### 测试报告管理接口
+
+#### GET /api/v1/reports
+
+获取所有测试报告。
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "reportId": "REPORT-20241217-100000",
+      "total": 10,
+      "passed": 8,
+      "failed": 2,
+      "duration": 300000,
+      "startTime": "2024-12-17T10:00:00.000Z",
+      "endTime": "2024-12-17T10:05:00.000Z",
+      "createdAt": "2024-12-17T10:05:00.000Z"
+    }
+  ]
+}
+```
+
+#### GET /api/v1/reports/:reportId
+
+获取单个测试报告。
+
+**路径参数**：
+- `reportId` (string): 报告ID
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "reportId": "REPORT-20241217-100000",
+    "total": 10,
+    "passed": 8,
+    "failed": 2,
+    "duration": 300000,
+    "startTime": "2024-12-17T10:00:00.000Z",
+    "endTime": "2024-12-17T10:05:00.000Z",
+    "summary": {
+      "totalActions": 50,
+      "passedActions": 45,
+      "failedActions": 5,
+      "totalExpectedResults": 20,
+      "matchedExpectedResults": 18,
+      "unmatchedExpectedResults": 2
+    },
+    "results": [
+      {
+        "testCase": {
+          "id": "uuid",
+          "caseId": "TC-LOGIN-001",
+          "title": "登录功能测试"
+        },
+        "success": true,
+        "startTime": "2024-12-17T10:00:00.000Z",
+        "endTime": "2024-12-17T10:01:00.000Z",
+        "duration": 60000,
+        "actionResults": [...],
+        "expectedResultsCheck": [...]
+      }
+    ]
+  }
+}
+```
+
+### 用例解析接口
+
+#### POST /api/v1/parse/file
+
+解析测试用例文件（支持 .md 和 .xmind）。
+
+**请求体**：
+```json
+{
+  "filePath": "case/05-login.md",
+  "caseDir": "case"
+}
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "filePath": "case/05-login.md",
+    "module": "登录模块",
+    "entryUrl": "https://example.com/login",
+    "testCases": [
+      {
+        "id": "TC-LOGIN-001",
+        "title": "登录功能测试",
+        "module": "登录模块",
+        "priority": "P0",
+        "testType": "功能测试",
+        "preconditions": ["条件1"],
+        "steps": ["步骤1", "步骤2"],
+        "expectedResults": ["结果1"],
+        "entryUrl": "https://example.com/login"
+      }
+    ]
+  }
+}
+```
+
+#### POST /api/v1/parse/string
+
+解析测试用例字符串。
+
+**请求体**：
+```json
+{
+  "content": "# 测试模块\n## TC-TEST-001: 测试用例\n**测试步骤**: 1. 步骤1",
+  "virtualFilePath": "inline-case.md"
+}
+```
+
+**响应示例**：同 POST /api/v1/parse/file
+
+#### POST /api/v1/parse/directory
+
+解析目录。
+
+**请求体**：
+```json
+{
+  "dirPath": "case"
+}
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "filePath": "case/05-login.md",
+      "module": "登录模块",
+      "entryUrl": "https://example.com/login",
+      "testCases": [...]
+    }
+  ]
+}
+```
+
+#### POST /api/v1/parse/xmind
+
+上传并解析 XMind 文件（multipart/form-data）。
+
+**请求格式**：multipart/form-data
+
+**表单字段**：
+- `file` (File): XMind 文件（.xmind）
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "filePath": "uploaded.xmind",
+    "module": "测试模块",
+    "testCases": [
+      {
+        "id": "TC-TEST-001",
+        "title": "测试用例1",
+        ...
+      }
+    ]
+  }
+}
+```
+
+### 测试执行接口
+
+#### POST /api/v1/run/all
+
+运行所有测试用例。
+
+**请求体**：
+```json
+{
+  "caseDir": "case",
+  "outputDir": "reports",
+  "format": "both"
+}
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "report": {
+      "total": 10,
+      "passed": 8,
+      "failed": 2,
+      "duration": 300000,
+      "startTime": "2024-12-17T10:00:00.000Z",
+      "endTime": "2024-12-17T10:05:00.000Z",
+      "passRate": "80.00%"
+    },
+    "results": [...]
+  }
+}
+```
+
+#### POST /api/v1/run/file
+
+运行单个测试用例文件。
+
+**请求体**：
+```json
+{
+  "filePath": "case/05-login.md",
+  "outputDir": "reports",
+  "format": "both"
+}
+```
+
+**响应示例**：同 POST /api/v1/run/all
+
+#### POST /api/v1/run/testcase
+
+运行单个测试用例对象。
+
+**请求体**：
+```json
+{
+  "testCase": {
+    "id": "TC-LOGIN-001",
+    "title": "登录功能测试",
+    "module": "登录模块",
+    "priority": "P0",
+    "testType": "功能测试",
+    "steps": ["步骤1", "步骤2"],
+    "expectedResults": ["结果1"]
+  },
+  "entryUrl": "https://example.com/login"
+}
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "testCase": {
+      "id": "TC-LOGIN-001",
+      "title": "登录功能测试"
+    },
+    "success": true,
+    "duration": 60000,
+    "startTime": "2024-12-17T10:00:00.000Z",
+    "endTime": "2024-12-17T10:01:00.000Z",
+    "actionResults": [...]
+  }
+}
+```
+
+#### POST /api/v1/run/string
+
+运行用例字符串。
+
+**请求体**：
+```json
+{
+  "content": "# 测试模块\n## TC-TEST-001: 测试用例\n**测试步骤**: 1. 步骤1",
+  "entryUrl": "https://example.com",
+  "outputDir": "reports",
+  "format": "both"
+}
+```
+
+**响应示例**：同 POST /api/v1/run/all
+
+### PRD 管理接口
+
+#### GET /api/v1/prds
+
+获取所有 PRD。
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "prdId": "PRD-001",
+      "title": "登录功能需求文档",
+      "description": "描述",
+      "version": "1.0.0",
+      "status": "draft",
+      "author": "admin",
+      "createdAt": "2024-12-17T10:00:00.000Z",
+      "updatedAt": "2024-12-17T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+#### GET /api/v1/prds/:prdId
+
+获取单个 PRD。
+
+**路径参数**：
+- `prdId` (string): PRD ID
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "prdId": "PRD-001",
+    "title": "登录功能需求文档",
+    "description": "描述",
+    "content": "# PRD 内容...",
+    "version": "1.0.0",
+    "status": "draft",
+    "author": "admin",
+    "createdAt": "2024-12-17T10:00:00.000Z",
+    "updatedAt": "2024-12-17T10:00:00.000Z"
+  }
+}
+```
+
+#### POST /api/v1/prds
+
+创建或更新 PRD。
+
+**请求体**：
+```json
+{
+  "title": "登录功能需求文档",
+  "description": "描述",
+  "content": "# PRD 内容...",
+  "version": "1.0.0",
+  "status": "draft",
+  "author": "admin",
+  "prdId": "PRD-001"
+}
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "prdId": "PRD-001",
+    "title": "登录功能需求文档",
+    ...
+  }
+}
+```
+
+#### PUT /api/v1/prds/:prdId
+
+更新 PRD。
+
+**路径参数**：
+- `prdId` (string): PRD ID
+
+**请求体**：同 POST /api/v1/prds
+
+**响应示例**：同 POST /api/v1/prds
+
+#### DELETE /api/v1/prds/:prdId
+
+删除 PRD。
+
+**路径参数**：
+- `prdId` (string): PRD ID
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "message": "PRD 已删除"
+}
+```
+
+#### POST /api/v1/prds/upload
+
+上传 PRD 文件（multipart/form-data）。
+
+**请求格式**：multipart/form-data
+
+**表单字段**：
+- `file` (File): PRD 文件（.md）
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "prdId": "PRD-001",
+    "title": "登录功能需求文档",
+    ...
+  }
+}
+```
+
+#### POST /api/v1/prds/:prdId/generate-test-cases
+
+从 PRD 生成测试用例。
+
+**路径参数**：
+- `prdId` (string): PRD ID
+
+**请求体**（可选）：
+```json
+{
+  "saveToDatabase": true
+}
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "prdId": "PRD-001",
+    "testCases": [
+      {
+        "id": "TC-LOGIN-001",
+        "title": "登录功能测试",
+        "module": "登录模块",
+        "priority": "P0",
+        "testType": "功能测试",
+        ...
+      }
+    ],
+    "count": 10
+  }
+}
+```
+
+#### GET /api/v1/prds/:prdId/test-cases
+
+获取 PRD 生成的测试用例。
+
+**路径参数**：
+- `prdId` (string): PRD ID
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "caseId": "TC-LOGIN-001",
+      "title": "登录功能测试",
+      "module": "登录模块",
+      "priority": "P0",
+      "testType": "功能测试",
+      "status": "draft",
+      ...
+    }
+  ]
+}
+```
+
+### 错误响应格式
+
+所有接口在发生错误时返回以下格式：
+
+```json
+{
+  "success": false,
+  "error": "错误信息描述"
+}
+```
+
+**HTTP 状态码**：
+- `200`: 成功
+- `400`: 请求参数错误
+- `404`: 资源不存在
+- `500`: 服务器内部错误
+
+---
+
 ## MCP 客户端接口
 
 ### PlaywrightMCPClient
 
 Playwright MCP 客户端，负责执行浏览器操作。
+
+**默认配置**：
+- 默认移除用户缓存，每次测试运行在全新的浏览器上下文中
+- 使用无痕模式，不保留缓存、Cookie 和本地存储
 
 #### 构造函数
 
@@ -724,6 +1592,17 @@ async executeAction(action: PlaywrightAction): Promise<ExecutionResult>
 
 **返回值：**
 - `Promise<ExecutionResult>`: 执行结果
+
+**FillAction 智能匹配**：
+- 支持多种 selector 格式：纯文本（如"账号"）、包含"输入框"的文本（如"账号输入框"）、placeholder 格式、id 格式
+- 自动提取关键词：如"账号输入框"会自动提取为"账号"
+- 支持多种匹配策略：
+  - 完全匹配（标准化后）
+  - 元素文本包含搜索文本
+  - 搜索文本包含元素文本
+  - 原始文本包含匹配
+  - 关键词匹配（提取关键词后匹配）
+- 自动移除特殊字符（如 `*`）进行匹配
 
 **示例：**
 ```typescript

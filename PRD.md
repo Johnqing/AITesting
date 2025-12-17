@@ -34,9 +34,11 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 | 功能模块 | 功能描述 | 优先级 |
 |---------|---------|--------|
 | 用例解析 | 支持 Markdown 格式测试用例解析，支持 AI 和正则两种解析方式 | P0 |
-| AI 转换 | 将自然语言测试步骤转换为 Playwright 操作序列 | P0 |
-| 测试执行 | 通过 MCP 协议执行浏览器自动化操作 | P0 |
-| 报告生成 | 生成 Markdown 和 JSON 格式的测试报告 | P0 |
+| AI 转换 | 将自然语言测试步骤转换为 Playwright 操作序列，优先使用文本选择器 | P0 |
+| 测试执行 | 通过 MCP 协议执行浏览器自动化操作，默认移除用户缓存 | P0 |
+| 报告生成 | 生成 Markdown 和 JSON 格式的测试报告，包含预期结果匹配检查 | P0 |
+| 智能元素匹配 | FillAction 支持关键词提取和多种匹配策略，提高元素定位成功率 | P0 |
+| 健康检查 | 提供健康检查和 API 信息接口 | P1 |
 | 命令行工具 | 提供 CLI 命令行接口 | P0 |
 | Web API 服务 | 提供 RESTful API 接口，支持测试用例、用例集、报告管理 | P0 |
 | Web UI 界面 | 提供可视化界面，支持测试用例管理、用例集管理、执行和报告查看 | P0 |
@@ -101,6 +103,8 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 - 前置条件列表
 - 测试步骤列表
 - 预期结果列表
+- 环境（system）：生产环境/预发布环境/测试环境（可选）
+- 测试目的（testObjective）：测试用例的目的说明（可选）
 
 **技术实现**：
 - AI 解析：使用 GLM-4.5 等大模型 API，通过 Prompt 工程提取结构化信息
@@ -160,6 +164,7 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 - 自动识别操作类型和所需参数（选择器、文本、URL 等）
 - 保持操作顺序与测试步骤一致
 - 自动处理入口 URL，如果第一个操作不是导航，则自动添加导航操作
+- **优先使用文本选择器**：对于 fill 和 click 操作，优先使用页面上的可见文本内容（如标签文本、placeholder 文本）而非 CSS 选择器，提高元素定位的稳定性和准确性
 
 **操作类型说明**：
 | 操作类型 | 说明 | 必需参数 | 可选参数 |
@@ -201,6 +206,8 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 - 使用 @modelcontextprotocol/sdk 建立 MCP 连接
 - 通过 MCP 调用 Playwright 服务器提供的操作接口
 - 支持快照解析，通过页面快照定位元素
+- **默认移除用户缓存**：每次测试运行在全新的浏览器上下文中，不保留缓存、Cookie 和本地存储
+- **智能元素匹配**：FillAction 支持多种匹配策略，包括关键词提取、文本包含匹配等，提高元素定位成功率
 
 #### 3.2.4 报告生成功能
 
@@ -218,6 +225,8 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
   - 执行时间
   - 错误信息（如有）
   - 操作执行详情（每个操作的成功/失败状态、消息、错误）
+  - **预期结果检查**：自动匹配测试用例的预期结果与实际执行结果，支持精确匹配、部分匹配、包含匹配等多种匹配方式
+  - **执行摘要**：总操作数、通过操作数、失败操作数、预期结果匹配统计
 
 **报告格式**：
 - **Markdown 格式**：适合人类阅读，包含格式化的表格和列表
@@ -318,7 +327,12 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 5. **测试执行** (`/api/v1/run`)
    - `POST /api/v1/run/all` - 运行所有测试用例
    - `POST /api/v1/run/file` - 运行单个测试用例文件
+   - `POST /api/v1/run/testcase` - 运行单个测试用例对象
    - `POST /api/v1/run/string` - 运行用例字符串
+
+6. **健康检查** (`/health`, `/api/v1/info`)
+   - `GET /health` - 健康状态检查，返回系统运行状态
+   - `GET /api/v1/info` - API 信息，返回 API 名称、版本和描述
 
 **技术实现**：
 - 使用 Express.js 框架
@@ -407,24 +421,49 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 1. **test_cases** - 测试用例表
    - 存储测试用例的基本信息和步骤
    - 支持环境字段（system）：生产环境/预发布环境/测试环境
+   - 支持测试目的字段（test_objective）
 
 2. **test_reports** - 测试报告表
    - 存储测试报告的摘要信息
 
-3. **test_results** - 测试结果表
+3. **test_report_summaries** - 测试报告摘要表
+   - 存储测试报告的统计摘要（总操作数、通过操作数、失败操作数、预期结果匹配统计等）
+
+4. **test_results** - 测试结果表
    - 存储单个测试用例的执行结果
 
-4. **action_results** - 操作结果表
+5. **test_result_summaries** - 测试结果摘要表
+   - 存储单个测试用例的执行统计摘要
+
+6. **action_results** - 操作结果表
    - 存储每个 Playwright 操作的执行结果
 
-5. **test_suites** - 测试用例集表
+7. **expected_result_checks** - 预期结果检查表
+   - 存储预期结果与实际结果的匹配检查记录
+
+8. **test_suites** - 测试用例集表
    - 存储用例集的基本信息
 
-6. **test_suite_executions** - 用例集执行记录表
-   - 存储用例集的执行记录
+9. **test_suite_cases** - 用例集与测试用例关联表
+   - 存储用例集与测试用例的多对多关联关系
 
-7. **test_suite_execution_results** - 用例集执行结果表
-   - 存储用例集中每个测试用例的执行结果
+10. **test_suite_executions** - 用例集执行记录表
+    - 存储用例集的执行记录
+
+11. **test_suite_execution_results** - 用例集执行结果表
+    - 存储用例集中每个测试用例的执行结果
+
+12. **prds** - PRD 表
+    - 存储产品需求文档的基本信息
+
+13. **prd_reviews** - PRD 评审表
+    - 存储 PRD 的评审记录
+
+14. **prd_test_cases** - PRD 与测试用例关联表
+    - 存储 PRD 与测试用例的关联关系
+
+15. **prd_generated_test_cases** - PRD 生成的测试用例表
+    - 存储从 PRD 自动生成的测试用例（草稿状态）
 
 **数据库特性**：
 - 使用 UUID 作为主键
@@ -463,9 +502,12 @@ TestFlow 是一个基于 AI 大模型和 Playwright MCP 的自动化测试框架
 - 测试目的
 
 **API 接口**：
-- `POST /api/v1/prds` - 创建或更新 PRD
 - `GET /api/v1/prds` - 获取所有 PRD
 - `GET /api/v1/prds/:prdId` - 获取单个 PRD
+- `POST /api/v1/prds` - 创建或更新 PRD
+- `PUT /api/v1/prds/:prdId` - 更新 PRD
+- `DELETE /api/v1/prds/:prdId` - 删除 PRD
+- `POST /api/v1/prds/upload` - 上传 PRD 文件（multipart/form-data）
 - `POST /api/v1/prds/:prdId/generate-test-cases` - 从 PRD 生成测试用例
 - `GET /api/v1/prds/:prdId/test-cases` - 获取 PRD 生成的测试用例
 
@@ -739,11 +781,20 @@ npx playwright install
 
 ---
 
-**文档版本**：v1.1  
-**最后更新**：2024-12-15  
+**文档版本**：v1.3  
+**最后更新**：2024-12-17  
 **维护者**：TestFlow 开发团队
 
 ## 11. 更新日志
+
+### v1.3 (2024-12-17)
+- ✅ 新增健康检查接口 `/health` 和 `/api/v1/info`
+- ✅ 默认移除用户缓存，每次测试运行在全新的浏览器上下文中
+- ✅ FillAction 智能匹配改进，支持关键词提取和多种匹配策略
+- ✅ AI Client 优化，优先使用文本选择器而非 CSS 选择器
+- ✅ 新增预期结果自动匹配功能，支持精确匹配、部分匹配、包含匹配
+- ✅ 测试报告新增执行摘要（总操作数、通过操作数、失败操作数等）
+- ✅ TestCase 类型新增 `system`（环境）和 `testObjective`（测试目的）字段
 
 ### v1.2 (2024-12-16)
 - ✅ 新增 XMind 文件解析功能
