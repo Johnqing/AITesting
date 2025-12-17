@@ -42,22 +42,50 @@ export class FillAction extends BaseAction {
                     logger.debug('Extracted id from selector', { originalSelector: selector, extractedText: searchText });
                 }
             }
+            // 处理包含"输入框"的文本，提取关键词（如"账号输入框" -> "账号"）
+            else if (selector.includes('输入框')) {
+                // 尝试提取关键词，移除"输入框"、"的"等后缀
+                searchText = selector.replace(/输入框|的/g, '').trim();
+                logger.debug('Extracted keyword from selector with 输入框', { originalSelector: selector, extractedText: searchText });
+            }
 
             // 查找输入框元素
             const allElements = getAllTextElements(snapshotContent);
 
             // 查找匹配的输入框（textbox 类型）
             const textboxMatches = allElements.filter(e => {
-                const elementTextNormalized = e.text.toLowerCase().trim().replace(/\s+/g, '');
+                if (e.role.toLowerCase() !== 'textbox' && e.role.toLowerCase() !== 'combobox') {
+                    return false;
+                }
+
+                const elementTextNormalized = e.text.toLowerCase().trim().replace(/\s+/g, '').replace(/[*/]/g, '');
                 const searchTextNormalized = searchText.toLowerCase().trim().replace(/\s+/g, '');
-                const elementTextLower = e.text.toLowerCase().trim();
+                const elementTextLower = e.text.toLowerCase().trim().replace(/[*/]/g, '');
                 const searchTextLower = searchText.toLowerCase().trim();
 
-                return (e.role.toLowerCase() === 'textbox' || e.role.toLowerCase() === 'combobox') &&
-                    (elementTextNormalized === searchTextNormalized ||
-                        elementTextNormalized.includes(searchTextNormalized) ||
-                        elementTextLower.includes(searchTextLower) ||
-                        searchTextLower.includes(elementTextLower));
+                // 完全匹配（标准化后）
+                if (elementTextNormalized === searchTextNormalized) {
+                    return true;
+                }
+                // 元素文本包含搜索文本
+                if (searchTextNormalized && elementTextNormalized.includes(searchTextNormalized)) {
+                    return true;
+                }
+                // 搜索文本包含元素文本
+                if (elementTextNormalized && searchTextNormalized.includes(elementTextNormalized)) {
+                    return true;
+                }
+                // 原始文本包含匹配
+                if (searchTextLower && elementTextLower.includes(searchTextLower)) {
+                    return true;
+                }
+                // 关键词匹配：提取搜索文本中的关键词（去除常见后缀）
+                const keywords = searchTextLower.split(/[的输入框]/).filter(k => k.length > 0);
+                if (keywords.length > 0) {
+                    return keywords.some(keyword => elementTextLower.includes(keyword));
+                }
+
+                return false;
             });
 
             if (textboxMatches.length === 0) {

@@ -79,7 +79,7 @@ export class AIClient {
 
 请将测试步骤转换为 JSON 格式的操作数组，每个操作包含以下字段：
 - type: 操作类型（navigate, click, wait, verify, fill, select, screenshot）
-- selector: CSS选择器或文本内容（用于定位元素）
+- selector: 元素定位标识（用于定位元素）
 - url: 导航的URL（仅当type为navigate时）
 - text: 要输入或验证的文本内容
 - timeout: 超时时间（毫秒，可选，默认5000）
@@ -91,9 +91,15 @@ export class AIClient {
 - click: 点击元素（通过selector定位）
 - wait: 等待页面加载或元素出现
 - verify: 验证元素或文本是否存在
-- fill: 填写表单
+- fill: 填写表单输入框
 - select: 选择下拉选项
 - screenshot: 截图
+
+重要提示：
+- 对于 fill 操作，selector 应该使用输入框的可见文本内容（如标签文本"账号"、"密码"，或 placeholder 文本），而不是 CSS 选择器
+- 对于 click 操作，selector 应该使用按钮或链接的可见文本内容（如"登录"、"提交"），而不是 CSS 选择器
+- 系统会通过页面快照匹配元素，所以 selector 必须是页面上实际显示的文本内容
+- 例如：填写账号输入框时，使用 selector: "账号" 而不是 selector: "input[placeholder='请输入账号']"
 
 请只返回 JSON 数组，不要包含其他说明文字。`
                     },
@@ -217,10 +223,10 @@ export class AIClient {
      */
     private buildPrompt(testCase: TestCase): string {
         logger.debug('Building prompt for test case', { testCaseId: testCase.id });
-        const entryUrlNote = testCase.entryUrl 
+        const entryUrlNote = testCase.entryUrl
             ? `\n重要提示：如果测试步骤中包含导航操作，请使用以下入口URL：${testCase.entryUrl}\n不要使用测试步骤中可能提到的其他URL（如example.com等占位符URL）。`
             : '';
-        
+
         return `请将以下测试用例转换为 Playwright 操作序列：
 
 测试用例ID: ${testCase.id}
