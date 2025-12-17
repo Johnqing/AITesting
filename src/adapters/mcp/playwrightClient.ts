@@ -14,6 +14,10 @@ import { createLogger } from '../../utils/logger.js';
 
 const logger = createLogger('MCP');
 
+/**
+ * Playwright MCP 客户端
+ * 默认配置：移除用户缓存，每个测试运行在全新的浏览器上下文中
+ */
 export class PlaywrightMCPClient {
     private connection: MCPConnection;
     private navigateAction!: NavigateAction;
@@ -24,6 +28,11 @@ export class PlaywrightMCPClient {
     private selectAction!: SelectAction;
     private screenshotAction!: ScreenshotAction;
 
+    /**
+     * 创建 Playwright MCP 客户端
+     * @param headless 是否无头模式，默认 false（显示浏览器）
+     * 注意：默认会移除用户缓存，每次测试都在全新的浏览器上下文中运行
+     */
     constructor(headless: boolean = false) {
         this.connection = new MCPConnection(headless);
     }

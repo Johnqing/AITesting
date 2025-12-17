@@ -33,12 +33,28 @@ export class MCPConnection {
                 headless: this.headless
             });
 
-            // 设置环境变量来控制 headless 模式
+            // 设置环境变量来控制 headless 模式和缓存
+            // Playwright 默认每个浏览器上下文都是新的，不会保留缓存
+            // 这些环境变量作为额外保障，确保不使用持久化缓存
             const env = {
                 ...process.env,
                 PLAYWRIGHT_HEADLESS: String(this.headless),
-                HEADLESS: String(this.headless)
+                HEADLESS: String(this.headless),
+                // 默认移除用户缓存，使用无痕模式
+                PLAYWRIGHT_INCOGNITO: 'true',
+                PLAYWRIGHT_NO_CACHE: 'true',
+                // 使用临时用户数据目录，避免使用持久化缓存
+                PLAYWRIGHT_TEMP_USER_DATA: 'true',
+                // 禁用浏览器缓存
+                PLAYWRIGHT_DISABLE_CACHE: 'true'
             };
+
+            logger.debug('Environment variables set for cache control', {
+                incognito: env.PLAYWRIGHT_INCOGNITO,
+                noCache: env.PLAYWRIGHT_NO_CACHE,
+                tempUserData: env.PLAYWRIGHT_TEMP_USER_DATA,
+                disableCache: env.PLAYWRIGHT_DISABLE_CACHE
+            });
 
             this.transport = new StdioClientTransport({
                 command: 'npx',
