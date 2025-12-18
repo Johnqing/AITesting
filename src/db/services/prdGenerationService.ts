@@ -21,19 +21,21 @@ export class PRDGenerationService {
         title?: string;
         status?: string;
         progress?: number;
+        appId?: string;
     }): Promise<PRDGenerationTask> {
         const startTime = Date.now();
         logger.info('Creating task', {
             taskId: task.taskId,
             title: task.title || undefined,
             status: task.status || 'pending',
-            progress: task.progress || 0
+            progress: task.progress || 0,
+            appId: task.appId || undefined
         });
 
         try {
             const result = await queryOne<any>(
-                `INSERT INTO prd_generation_tasks (task_id, title, status, progress)
-       VALUES ($1, $2, $3, $4)
+                `INSERT INTO prd_generation_tasks (task_id, title, status, progress, app_id)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING 
          id,
          task_id as "taskId",
@@ -42,6 +44,7 @@ export class PRDGenerationService {
          current_step as "currentStep",
          progress,
          error_message as "errorMessage",
+         app_id as "appId",
          created_at as "createdAt",
          updated_at as "updatedAt",
          completed_at as "completedAt"`,
@@ -49,7 +52,8 @@ export class PRDGenerationService {
                     task.taskId,
                     task.title || null,
                     task.status || 'pending',
-                    task.progress || 0
+                    task.progress || 0,
+                    task.appId || null
                 ]
             );
 
@@ -626,15 +630,25 @@ export class PRDGenerationService {
         });
 
         try {
+            // 获取任务中的应用ID
+            const task = await this.getTask(taskId);
+            let appId: string | undefined = undefined;
+            if (task && (task as any).appId) {
+                const { applicationService } = await import('./applicationService.js');
+                const app = await applicationService.getApplicationById((task as any).appId);
+                if (app) {
+                    appId = app.appId;
+                }
+            }
+
             // 使用prdService解析并保存PRD
-            const prdRecord = await prdService.parseAndSavePRDFromContent(prdContent, taskId);
+            const prdRecord = await prdService.parseAndSavePRDFromContent(prdContent, taskId, appId);
 
             if (!prdRecord || !prdRecord.prdId) {
                 throw new Error(`Failed to save PRD: prdRecord is ${prdRecord ? 'missing prdId' : 'null'}`);
             }
 
             // 更新prd_generation_results表，关联prdId
-            const task = await this.getTask(taskId);
             if (task) {
                 const existingResult = await queryOne<any>(
                     `SELECT id FROM prd_generation_results WHERE task_id = $1`,

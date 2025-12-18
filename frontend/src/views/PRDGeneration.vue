@@ -14,6 +14,32 @@
       <!-- 需求输入阶段 -->
       <div v-if="!currentTaskId" class="input-section">
         <el-form :model="requirementForm" label-width="120px">
+          <el-form-item label="应用分类" required>
+            <el-select 
+              v-model="requirementForm.appId" 
+              placeholder="请选择应用（用于检索历史PRD）"
+              style="width: 100%"
+              filterable
+              :loading="applications.length === 0"
+              no-data-text="暂无应用，请先创建应用分类"
+            >
+              <el-option
+                v-for="app in applications"
+                :key="app.appId"
+                :label="app.name"
+                :value="app.appId"
+              >
+                <span>{{ app.name }}</span>
+                <span style="color: #8492a6; font-size: 13px; margin-left: 10px">{{ app.description || app.appId }}</span>
+              </el-option>
+            </el-select>
+            <div style="font-size: 12px; color: #909399; margin-top: 5px">
+              选择应用后，系统将只检索该应用的历史PRD作为参考
+            </div>
+            <div v-if="applications.length === 0" style="font-size: 12px; color: #e6a23c; margin-top: 5px">
+              <el-link type="warning" href="/applications" target="_blank">前往创建应用分类</el-link>
+            </div>
+          </el-form-item>
           <el-form-item label="任务标题（可选）">
             <el-input v-model="requirementForm.title" placeholder="请输入任务标题" />
           </el-form-item>
@@ -146,14 +172,18 @@ import {
   getMessages,
   getGenerationResult,
   saveGeneratedPRD,
-  exportPRDAsMarkdown
+  exportPRDAsMarkdown,
+  getAllApplications
 } from '@/api/index'
 import { renderMarkdown } from '@/utils/markdown'
 
 const requirementForm = ref({
+  appId: '',
   title: '',
   requirement: ''
 })
+
+const applications = ref<any[]>([])
 
 const currentTaskId = ref<string>('')
 const taskStatus = ref<any>(null)
@@ -194,6 +224,29 @@ const renderedPRD = computed(() => {
 
 const chatMessagesRef = ref<HTMLElement>()
 
+const loadApplications = async () => {
+  try {
+    const response = await getAllApplications()
+    if (response.success) {
+      applications.value = response.data || []
+      console.log('Applications loaded:', applications.value)
+      // 如果只有一个应用，默认选中
+      if (applications.value.length === 1) {
+        requirementForm.value.appId = applications.value[0].appId
+      }
+      // 如果没有应用，提示用户
+      if (applications.value.length === 0) {
+        ElMessage.warning('暂无应用分类，请先创建应用分类')
+      }
+    } else {
+      ElMessage.error(response.error || '加载应用列表失败')
+    }
+  } catch (error: any) {
+    console.error('Failed to load applications:', error)
+    ElMessage.error(error.message || '加载应用列表失败')
+  }
+}
+
 const handleNewGeneration = () => {
   // 清理SSE连接和轮询
   stopSSE()
@@ -207,7 +260,7 @@ const handleNewGeneration = () => {
   messages.value = []
   prdContent.value = ''
   userResponse.value = ''
-  requirementForm.value = { title: '', requirement: '' }
+  requirementForm.value = { appId: '', title: '', requirement: '' }
 }
 
 const handleStartGeneration = async () => {
@@ -216,11 +269,17 @@ const handleStartGeneration = async () => {
     return
   }
 
+  if (!requirementForm.value.appId) {
+    ElMessage.warning('请选择应用分类')
+    return
+  }
+
   starting.value = true
   try {
     const result = await startPRDGeneration({
       requirement: requirementForm.value.requirement,
-      title: requirementForm.value.title || undefined
+      title: requirementForm.value.title || undefined,
+      appId: requirementForm.value.appId
     })
     
     if (result.success) {
@@ -537,6 +596,7 @@ const formatTime = (time: string | Date) => {
 }
 
 onMounted(async () => {
+  await loadApplications()
   // 如果URL中有taskId，加载该任务
   const params = new URLSearchParams(window.location.search)
   const taskId = params.get('taskId')

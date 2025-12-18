@@ -32,6 +32,7 @@ export class PRDGenerationOrchestrator {
     options: {
       taskId?: string;
       title?: string;
+      appId?: string;
     } = {}
   ): Promise<string> {
     const startTime = Date.now();
@@ -46,13 +47,27 @@ export class PRDGenerationOrchestrator {
         requirementLength: requirementText.length 
       });
       
+      // 如果提供了appId，需要转换为UUID
+      let appIdUuid: string | undefined = undefined;
+      if (options.appId) {
+        const { applicationService } = await import('../../db/services/applicationService.js');
+        const app = await applicationService.getApplicationByAppId(options.appId);
+        if (app) {
+          appIdUuid = app.id;
+          logger.info('Application found', { appId: options.appId, appName: app.name, appUuid: appIdUuid });
+        } else {
+          logger.warn('Application not found, continuing without app filter', { appId: options.appId });
+        }
+      }
+
       const task = await prdGenerationService.createTask({
         taskId,
         title: options.title,
         status: 'pending',
-        progress: 0
+        progress: 0,
+        appId: appIdUuid
       });
-      logger.info('Task created successfully', { taskId, taskDbId: task.id });
+      logger.info('Task created successfully', { taskId, taskDbId: task.id, appId: options.appId || undefined });
 
       // 保存需求输入
       logger.debug('Saving requirement input', { taskId });
@@ -64,8 +79,8 @@ export class PRDGenerationOrchestrator {
       });
 
       // 异步执行生成流程
-      logger.info('Starting async generation flow', { taskId });
-      this.executeGenerationFlow(taskId, requirementText).catch((error) => {
+      logger.info('Starting async generation flow', { taskId, appId: options.appId || undefined });
+      this.executeGenerationFlow(taskId, requirementText, options.appId).catch((error) => {
         logger.error('Generation flow failed', error, { 
           taskId,
           errorMessage: error instanceof Error ? error.message : String(error),
@@ -94,7 +109,8 @@ export class PRDGenerationOrchestrator {
     taskId: string,
     requirementText: string,
     conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
-    draftSchema?: Partial<PRDSchemaData>
+    draftSchema?: Partial<PRDSchemaData>,
+    appId?: string
   ): Promise<void> {
     const flowStartTime = Date.now();
     logger.info('Starting schema and generation flow', {
@@ -152,7 +168,7 @@ export class PRDGenerationOrchestrator {
         schemaFunctionalRequirements: schema.functionalRequirements?.length || 0
       });
 
-      const prdContent = await this.prdGenerationAgent.generatePRD(schema, undefined, true);
+      const prdContent = await this.prdGenerationAgent.generatePRD(schema, undefined, true, appId);
 
       const prdDuration = Date.now() - prdStartTime;
       logger.info('PRD generated successfully', {
@@ -202,7 +218,7 @@ export class PRDGenerationOrchestrator {
   /**
    * 执行生成流程
    */
-  private async executeGenerationFlow(taskId: string, initialRequirement: string): Promise<void> {
+  private async executeGenerationFlow(taskId: string, initialRequirement: string, appId?: string): Promise<void> {
     const flowStartTime = Date.now();
     logger.info('Starting generation flow', {
       taskId,
@@ -335,11 +351,23 @@ export class PRDGenerationOrchestrator {
         }))
       });
 
+      // 获取任务中的应用ID
+      const task = await prdGenerationService.getTask(taskId);
+      let appId: string | undefined = undefined;
+      if (task && (task as any).appId) {
+        const { applicationService } = await import('../../db/services/applicationService.js');
+        const app = await applicationService.getApplicationById((task as any).appId);
+        if (app) {
+          appId = app.appId;
+        }
+      }
+
       await this.executeSchemaAndGeneration(
         taskId,
         initialRequirement,
         conversationHistory.map(m => ({ role: m.role, content: m.content })),
-        clarificationResult.structuredDraft
+        clarificationResult.structuredDraft,
+        appId
       );
     } catch (error) {
       logger.error('Generation flow error', error, { taskId });
@@ -486,12 +514,24 @@ export class PRDGenerationOrchestrator {
           userResponseLength: userResponse.length
         });
 
+        // 获取任务中的应用ID
+        const taskForApp = await prdGenerationService.getTask(taskId);
+        let appIdForContinue: string | undefined = undefined;
+        if (taskForApp && (taskForApp as any).appId) {
+          const { applicationService } = await import('../../db/services/applicationService.js');
+          const app = await applicationService.getApplicationById((taskForApp as any).appId);
+          if (app) {
+            appIdForContinue = app.appId;
+          }
+        }
+
         // 异步执行，避免阻塞
         this.executeSchemaAndGeneration(
           taskId,
           requirementText + '\n\n' + userResponse,
           conversationHistory, // conversationHistory已经包含了userResponse
-          clarificationResult.structuredDraft
+          clarificationResult.structuredDraft,
+          appIdForContinue
         ).catch((error) => {
           logger.error('Schema and generation flow failed in continueConversation', error, {
             taskId,

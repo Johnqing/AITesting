@@ -23,7 +23,7 @@ export async function startPRDGeneration(req: Request, res: Response): Promise<v
   });
 
   try {
-    const { requirement, title } = req.body;
+    const { requirement, title, appId } = req.body;
 
     if (!requirement || typeof requirement !== 'string' || requirement.trim() === '') {
       logger.warn('Invalid request: requirement is empty');
@@ -36,10 +36,11 @@ export async function startPRDGeneration(req: Request, res: Response): Promise<v
 
     logger.info('Starting PRD generation', {
       requirementLength: requirement.length,
-      title: title || undefined
+      title: title || undefined,
+      appId: appId || undefined
     });
 
-    const taskId = await orchestrator.startGeneration(requirement.trim(), { title });
+    const taskId = await orchestrator.startGeneration(requirement.trim(), { title, appId });
 
     const duration = Date.now() - startTime;
     logger.info('PRD generation started successfully', {
@@ -777,10 +778,23 @@ export async function regenerateParagraph(req: Request, res: Response): Promise<
       contextLength: context?.length || 0
     });
 
+    // 获取任务中的应用ID
+    const task = await prdGenerationService.getTask(taskId);
+    let appId: string | undefined = undefined;
+    if (task && (task as any).appId) {
+      const { applicationService } = await import('../../db/services/applicationService.js');
+      const app = await applicationService.getApplicationById((task as any).appId);
+      if (app) {
+        appId = app.appId;
+      }
+    }
+
     const paragraph = await prdGenerationAgent.regenerateParagraph(
       schema.schemaData,
       sectionTitle,
-      context || ''
+      context || '',
+      true,
+      appId
     );
 
     const duration = Date.now() - startTime;

@@ -60,7 +60,7 @@ export async function getPRDById(req: Request, res: Response): Promise<void> {
  */
 export async function upsertPRD(req: Request, res: Response): Promise<void> {
   try {
-    const { title, description, content, version, status, author, prdId } = req.body;
+    const { title, description, content, version, status, author, prdId, appId } = req.body;
 
     if (!title || !content) {
       res.status(400).json({
@@ -81,7 +81,7 @@ export async function upsertPRD(req: Request, res: Response): Promise<void> {
     if (author) prd.author = author;
     if (prdId) prd.prdId = prdId;
 
-    const result = await prdService.upsertPRD(prd);
+    const result = await prdService.upsertPRD(prd, appId);
     res.json({
       success: true,
       data: result,

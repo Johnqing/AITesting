@@ -155,7 +155,7 @@ export const exportPRDAsMarkdownFile = async (prdId: string) => {
 }
 
 // PRD 生成接口
-export const startPRDGeneration = (data: { requirement: string; title?: string }) =>
+export const startPRDGeneration = (data: { requirement: string; title?: string; appId?: string }) =>
   api.post('/prd/generate', data)
 export const getGenerationStatus = (taskId: string) =>
   api.get(`/prd/generate/${taskId}/status`)
@@ -171,6 +171,15 @@ export const saveGeneratedPRD = (taskId: string, data?: { title?: string; descri
   api.post(`/prd/generate/${taskId}/save`, data || {})
 export const regenerateParagraph = (taskId: string, data: { sectionTitle: string; context?: string }) =>
   api.post(`/prd/generate/${taskId}/regenerate-paragraph`, data)
+
+// 应用管理接口
+export const getAllApplications = () => api.get('/applications')
+export const getApplicationByAppId = (appId: string) => api.get(`/applications/${appId}`)
+export const createApplication = (data: { appId: string; name: string; description?: string; appType?: string }) =>
+  api.post('/applications', data)
+export const updateApplication = (appId: string, data: { name?: string; description?: string; appType?: string }) =>
+  api.put(`/applications/${appId}`, data)
+export const deleteApplication = (appId: string) => api.delete(`/applications/${appId}`)
 export const exportPRDAsMarkdown = async (taskId: string) => {
   // 使用相对路径，通过代理访问
   const response = await fetch(`/api/v1/prd/generate/${taskId}/export`)

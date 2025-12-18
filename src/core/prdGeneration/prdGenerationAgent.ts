@@ -7,7 +7,7 @@ const logger = createLogger('PRDGenerationAgent');
 
 export class PRDGenerationAgent {
   private client: OpenAI;
-  private ragRetriever: RAGRetriever;
+  public ragRetriever: RAGRetriever;
 
   constructor() {
     const apiKey = process.env.API_KEY || '';
@@ -32,23 +32,30 @@ export class PRDGenerationAgent {
   async generatePRD(
     schema: PRDSchemaData,
     template?: string,
-    useRAG: boolean = true
+    useRAG: boolean = true,
+    appId?: string
   ): Promise<string> {
     const startTime = Date.now();
     logger.start('generatePRD', {
       hasProductOverview: !!schema.productOverview,
-      functionalRequirementsCount: schema.functionalRequirements?.length || 0
+      functionalRequirementsCount: schema.functionalRequirements?.length || 0,
+      appId: appId || undefined
     });
 
     try {
-      // 使用RAG检索相关的历史PRD
+      // 使用RAG检索相关的历史PRD（只检索相同应用的PRD）
       let ragContext = '';
       if (useRAG) {
         try {
-          const relevantPRDs = await this.ragRetriever.retrieveRelevantPRDs(schema);
+          const relevantPRDs = await this.ragRetriever.retrieveRelevantPRDs(schema, 5, appId); // 默认检索5个PRD
           if (relevantPRDs.length > 0) {
             ragContext = this.ragRetriever.formatContextForPrompt(relevantPRDs);
-            logger.info('RAG context retrieved', { prdCount: relevantPRDs.length });
+            logger.info('RAG context retrieved', { 
+              prdCount: relevantPRDs.length,
+              appId: appId || undefined
+            });
+          } else if (appId) {
+            logger.info('No relevant PRDs found for app', { appId });
           }
         } catch (error) {
           logger.warn('RAG retrieval failed, continuing without context', error);
@@ -199,17 +206,18 @@ PRD文档应包含以下章节：
     schema: PRDSchemaData,
     sectionTitle: string,
     context: string,
-    useRAG: boolean = true
+    useRAG: boolean = true,
+    appId?: string
   ): Promise<string> {
     const startTime = Date.now();
-    logger.start('regenerateParagraph', { sectionTitle });
+    logger.start('regenerateParagraph', { sectionTitle, appId: appId || undefined });
 
     try {
-      // 使用RAG检索相关的历史PRD（针对特定章节）
+      // 使用RAG检索相关的历史PRD（针对特定章节，只检索相同应用的PRD）
       let ragContext = '';
       if (useRAG) {
         try {
-          const relevantPRDs = await this.ragRetriever.retrieveRelevantPRDs(schema, 3); // 段落重生成时使用更少的参考文档
+          const relevantPRDs = await this.ragRetriever.retrieveRelevantPRDs(schema, 3, appId); // 段落重生成时使用更少的参考文档
           if (relevantPRDs.length > 0) {
             // 提取相关章节的内容
             const sectionContexts = relevantPRDs.map(prd => {

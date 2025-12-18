@@ -1,11 +1,13 @@
 import OpenAI from 'openai';
 import { ClarificationResponse, PRDSchemaData } from '../../types/prdGeneration.js';
 import { createLogger } from '../../utils/logger.js';
+import { RAGRetriever } from './ragRetriever.js';
 
 const logger = createLogger('ClarificationAgent');
 
 export class ClarificationAgent {
     private client: OpenAI;
+    private ragRetriever: RAGRetriever;
 
     constructor() {
         const apiKey = process.env.API_KEY || '';
@@ -20,6 +22,8 @@ export class ClarificationAgent {
             apiKey,
             baseURL
         });
+
+        this.ragRetriever = new RAGRetriever();
     }
 
     /**
@@ -36,9 +40,40 @@ export class ClarificationAgent {
         });
 
         try {
+            // 检索相关的历史PRD，提取已有信息（只检索相同应用的PRD）
+            let historicalContext = '';
+            let appId: string | undefined = undefined;
+            try {
+                // 尝试从需求文本中提取应用标识
+                appId = this.extractAppIdFromRequirement(requirementText);
+
+                logger.info('Retrieving historical PRDs for clarification', {
+                    requirementLength: requirementText.length,
+                    appId: appId || undefined
+                });
+
+                // 从需求文本中提取关键词用于检索
+                const draftSchema = this.extractDraftSchemaFromRequirement(requirementText);
+                const relevantPRDs = await this.ragRetriever.retrieveRelevantPRDs(draftSchema, 3, appId);
+
+                if (relevantPRDs.length > 0) {
+                    historicalContext = this.extractHistoricalInfo(relevantPRDs);
+                    logger.info('Historical PRD context extracted', {
+                        prdCount: relevantPRDs.length,
+                        contextLength: historicalContext.length
+                    });
+                } else {
+                    logger.info('No relevant historical PRDs found');
+                }
+            } catch (error) {
+                logger.warn('Failed to retrieve historical PRDs, continuing without context', error);
+                // 继续执行，不影响主流程
+            }
+
             logger.info('Calling AI for requirement clarification', {
                 requirementLength: requirementText.length,
                 conversationHistoryLength: conversationHistory.length,
+                hasHistoricalContext: !!historicalContext,
                 model: process.env.DEFAULT_MODEL || 'glm-4.5'
             });
 
@@ -60,11 +95,17 @@ export class ClarificationAgent {
 5. 非功能需求（性能、安全、兼容性等）
 6. 业务规则和约束
 
+重要提示：
+- 如果提供了历史PRD参考信息，请仔细检查这些信息是否已经回答了某些问题
+- 对于历史PRD中已经明确的信息（如产品类型、目标用户等），不要再生成重复的追问问题
+- 只针对当前需求中缺失且历史PRD中也没有的信息生成追问问题
+- 如果历史PRD中的信息可以补充当前需求，可以直接使用这些信息
+
 如果需求信息不足，请生成针对性的追问问题。如果信息足够，isComplete设为true，并返回structuredDraft。`
                 },
                 {
                     role: 'user',
-                    content: this.buildClarificationPrompt(requirementText, conversationHistory)
+                    content: this.buildClarificationPrompt(requirementText, conversationHistory, historicalContext)
                 }
             ];
 
@@ -162,19 +203,161 @@ export class ClarificationAgent {
      */
     private buildClarificationPrompt(
         requirementText: string,
-        conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>
+        conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+        historicalContext?: string
     ): string {
         let prompt = `请分析以下产品需求：\n\n${requirementText}\n\n`;
+
+        if (historicalContext) {
+            prompt += `\n## 参考的历史PRD信息：\n\n${historicalContext}\n\n`;
+            prompt += `请注意：以上历史PRD中已经包含的信息（如产品类型、目标用户、主要功能等），如果当前需求中也涉及相同产品，请不要重复询问这些问题。\n\n`;
+        }
 
         if (conversationHistory.length > 0) {
             prompt += '\n对话历史：\n';
             conversationHistory.forEach((msg, index) => {
                 prompt += `${msg.role === 'user' ? '用户' : '助手'}: ${msg.content}\n`;
             });
-            prompt += '\n请基于以上对话历史，继续分析需求完整度。\n';
+            prompt += '\n请基于以上对话历史和参考信息，继续分析需求完整度。\n';
         }
 
         return prompt;
+    }
+
+    /**
+     * 从需求文本中提取应用ID
+     */
+    private extractAppIdFromRequirement(requirementText: string): string | undefined {
+        // 尝试从需求文本中识别应用名称，然后查找对应的appId
+        // 这里可以扩展更智能的匹配逻辑
+        // 暂时返回undefined，由用户选择应用
+        return undefined;
+    }
+
+    /**
+     * 从需求文本中提取草稿Schema用于RAG检索
+     */
+    private extractDraftSchemaFromRequirement(requirementText: string): Partial<PRDSchemaData> {
+        // 简单提取产品名称和关键词
+        const lines = requirementText.split('\n');
+        const keywords: string[] = [];
+
+        // 提取可能的产品名称（通常在开头）
+        const firstLine = lines[0]?.trim() || '';
+        if (firstLine && firstLine.length < 50) {
+            keywords.push(firstLine);
+        }
+
+        // 提取所有非空行作为关键词
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            if (trimmed && trimmed.length > 3 && trimmed.length < 100) {
+                keywords.push(trimmed);
+            }
+        });
+
+        return {
+            productOverview: {
+                productDescription: requirementText.substring(0, 500)
+            },
+            functionalRequirements: keywords.slice(0, 10).map((keyword, index) => ({
+                id: `FR-${index + 1}`,
+                title: keyword,
+                description: keyword,
+                priority: 'P1' as const
+            }))
+        };
+    }
+
+    /**
+     * 从历史PRD中提取关键信息（产品类型、目标用户等）
+     */
+    private extractHistoricalInfo(relevantPRDs: Array<{ prdId: string; title: string; content: string }>): string {
+        const infoSections: string[] = [];
+
+        for (const prd of relevantPRDs) {
+            try {
+                const section: string[] = [];
+                section.push(`### 历史PRD: ${prd.title} (ID: ${prd.prdId})\n`);
+
+                const content = prd.content;
+
+                // 提取产品名称（从标题或内容中）
+                const titleMatch = content.match(/^#\s+(.+)$/m) ||
+                    content.match(/(?:产品名称|产品)[：:]\s*([^\n]+)/i);
+                if (titleMatch) {
+                    section.push(`- **产品名称**: ${titleMatch[1] || prd.title}`);
+                } else if (prd.title) {
+                    section.push(`- **产品名称**: ${prd.title}`);
+                }
+
+                // 提取产品类型（App、网站等）
+                const productTypePatterns = [
+                    /(?:产品类型|形式|平台|产品形式)[：:]\s*([^\n]+)/i,
+                    /(?:是|为|属于)\s*([^\s，,。\n]+?)(?:App|网站|平台|系统|应用|小程序)/i,
+                    /([^\s，,。\n]+?)(?:App|网站|平台|系统|应用|小程序)/i
+                ];
+
+                let productType: string | null = null;
+                for (const pattern of productTypePatterns) {
+                    const match = content.match(pattern);
+                    if (match) {
+                        productType = match[1] || match[0];
+                        break;
+                    }
+                }
+                if (productType) {
+                    section.push(`- **产品类型**: ${productType}`);
+                }
+
+                // 提取目标用户
+                const targetUserPatterns = [
+                    /(?:目标用户|用户群体|面向用户|主要用户)[：:]\s*([^\n]+)/i,
+                    /(?:面向|主要用户|目标群体)\s*([^\n，,。]+)/i,
+                    /(?:用户|群体)[：:]\s*([^\n]+)/i
+                ];
+
+                let targetUser: string | null = null;
+                for (const pattern of targetUserPatterns) {
+                    const match = content.match(pattern);
+                    if (match) {
+                        targetUser = match[1] || match[0];
+                        break;
+                    }
+                }
+                if (targetUser) {
+                    section.push(`- **目标用户**: ${targetUser}`);
+                }
+
+                // 提取产品描述
+                const descriptionMatch = content.match(/(?:产品描述|描述|简介)[：:]\s*([^\n]+)/i);
+                if (descriptionMatch) {
+                    section.push(`- **产品描述**: ${descriptionMatch[1].substring(0, 200)}`);
+                }
+
+                // 提取主要功能
+                const functionMatch = content.match(/(?:主要功能|核心功能|功能包括|功能)[：:]\s*([^\n]+)/i);
+                if (functionMatch) {
+                    section.push(`- **主要功能**: ${functionMatch[1].substring(0, 200)}`);
+                }
+
+                if (section.length > 1) {
+                    infoSections.push(section.join('\n'));
+                } else {
+                    // 如果没提取到结构化信息，至少提供标题
+                    infoSections.push(`### 历史PRD: ${prd.title} (ID: ${prd.prdId})\n- **产品名称**: ${prd.title}`);
+                }
+            } catch (error) {
+                logger.warn('Failed to extract info from historical PRD', error, {
+                    prdId: prd.prdId,
+                    title: prd.title
+                });
+                // 如果提取失败，至少提供标题
+                infoSections.push(`### 历史PRD: ${prd.title} (ID: ${prd.prdId})\n- **产品名称**: ${prd.title}`);
+            }
+        }
+
+        return infoSections.join('\n\n---\n\n');
     }
 }
 

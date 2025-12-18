@@ -47,6 +47,10 @@
         <el-icon><DocumentChecked /></el-icon>
         <span>PRD管理</span>
       </el-menu-item>
+      <el-menu-item index="/applications">
+        <el-icon><Grid /></el-icon>
+        <span>应用分类管理</span>
+      </el-menu-item>
     </el-sub-menu>
   </el-menu>
 </template>
@@ -62,7 +66,8 @@ import {
   Folder, 
   DocumentChecked,
   FolderOpened,
-  MagicStick
+  MagicStick,
+  Grid
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

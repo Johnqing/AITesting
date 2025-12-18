@@ -1,0 +1,249 @@
+import { Request, Response } from 'express';
+import { applicationService } from '../../db/services/applicationService.js';
+import { createLogger } from '../../utils/logger.js';
+
+const logger = createLogger('ApplicationController');
+
+/**
+ * 获取所有应用
+ * GET /api/v1/applications
+ */
+export async function getAllApplications(req: Request, res: Response): Promise<void> {
+  const startTime = Date.now();
+  logger.start('getAllApplications');
+
+  try {
+    const applications = await applicationService.getAllApplications();
+
+    const duration = Date.now() - startTime;
+    logger.info('Applications retrieved successfully', {
+      count: applications.length,
+      duration: `${duration}ms`
+    });
+    logger.end('getAllApplications', { count: applications.length }, duration);
+
+    res.json({
+      success: true,
+      data: applications
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.error('Error getting applications', error, {
+      duration: `${duration}ms`
+    });
+    logger.end('getAllApplications', { success: false }, duration);
+
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : '获取应用列表失败'
+    });
+  }
+}
+
+/**
+ * 根据appId获取应用
+ * GET /api/v1/applications/:appId
+ */
+export async function getApplicationByAppId(req: Request, res: Response): Promise<void> {
+  const startTime = Date.now();
+  const { appId } = req.params;
+  logger.start('getApplicationByAppId', { appId });
+
+  try {
+    const application = await applicationService.getApplicationByAppId(appId);
+
+    if (!application) {
+      logger.warn('Application not found', { appId });
+      res.status(404).json({
+        success: false,
+        error: '应用不存在'
+      });
+      return;
+    }
+
+    const duration = Date.now() - startTime;
+    logger.info('Application retrieved successfully', {
+      appId,
+      name: application.name,
+      duration: `${duration}ms`
+    });
+    logger.end('getApplicationByAppId', { appId }, duration);
+
+    res.json({
+      success: true,
+      data: application
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.error('Error getting application', error, {
+      appId,
+      duration: `${duration}ms`
+    });
+    logger.end('getApplicationByAppId', { success: false }, duration);
+
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : '获取应用失败'
+    });
+  }
+}
+
+/**
+ * 创建应用
+ * POST /api/v1/applications
+ */
+export async function createApplication(req: Request, res: Response): Promise<void> {
+  const startTime = Date.now();
+  const { appId, name, description, appType } = req.body;
+  logger.start('createApplication', { appId, name });
+
+  try {
+    if (!appId || !name) {
+      logger.warn('Invalid request: appId or name is empty');
+      res.status(400).json({
+        success: false,
+        error: 'appId和name不能为空'
+      });
+      return;
+    }
+
+    const application = await applicationService.createApplication({
+      appId,
+      name,
+      description,
+      appType
+    });
+
+    const duration = Date.now() - startTime;
+    logger.info('Application created successfully', {
+      appId,
+      name,
+      duration: `${duration}ms`
+    });
+    logger.end('createApplication', { appId }, duration);
+
+    res.json({
+      success: true,
+      data: application
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.error('Error creating application', error, {
+      appId,
+      duration: `${duration}ms`
+    });
+    logger.end('createApplication', { success: false }, duration);
+
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : '创建应用失败'
+    });
+  }
+}
+
+/**
+ * 更新应用
+ * PUT /api/v1/applications/:appId
+ */
+export async function updateApplication(req: Request, res: Response): Promise<void> {
+  const startTime = Date.now();
+  const { appId } = req.params;
+  const { name, description, appType } = req.body;
+  logger.start('updateApplication', { appId });
+
+  try {
+    const application = await applicationService.updateApplication(appId, {
+      name,
+      description,
+      appType
+    });
+
+    const duration = Date.now() - startTime;
+    logger.info('Application updated successfully', {
+      appId,
+      duration: `${duration}ms`
+    });
+    logger.end('updateApplication', { appId }, duration);
+
+    res.json({
+      success: true,
+      data: application
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.error('Error updating application', error, {
+      appId,
+      duration: `${duration}ms`
+    });
+    logger.end('updateApplication', { success: false }, duration);
+
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : '更新应用失败'
+    });
+  }
+}
+
+/**
+ * 删除应用
+ * DELETE /api/v1/applications/:appId
+ */
+export async function deleteApplication(req: Request, res: Response): Promise<void> {
+  const startTime = Date.now();
+  const { appId } = req.params;
+  logger.start('deleteApplication', { appId });
+
+  try {
+    // 检查是否有PRD关联此应用
+    const { prdService } = await import('../../db/services/prdService.js');
+    const prds = await prdService.getPRDsByAppId(appId);
+    
+    if (prds.length > 0) {
+      logger.warn('Cannot delete application: PRDs exist', { appId, prdCount: prds.length });
+      res.status(400).json({
+        success: false,
+        error: `无法删除应用：该应用下有 ${prds.length} 个PRD，请先删除或转移这些PRD`
+      });
+      return;
+    }
+
+    // 获取应用信息以确认存在
+    const application = await applicationService.getApplicationByAppId(appId);
+    if (!application) {
+      logger.warn('Application not found', { appId });
+      res.status(404).json({
+        success: false,
+        error: '应用不存在'
+      });
+      return;
+    }
+
+    // 删除应用（通过app_id）
+    await applicationService.deleteApplication(appId);
+
+    const duration = Date.now() - startTime;
+    logger.info('Application deleted successfully', {
+      appId,
+      duration: `${duration}ms`
+    });
+    logger.end('deleteApplication', { appId }, duration);
+
+    res.json({
+      success: true,
+      message: '删除成功'
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.error('Error deleting application', error, {
+      appId,
+      duration: `${duration}ms`
+    });
+    logger.end('deleteApplication', { success: false }, duration);
+
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : '删除应用失败'
+    });
+  }
+}
+

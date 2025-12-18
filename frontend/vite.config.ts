@@ -11,6 +11,7 @@ export default defineConfig({
   },
   server: {
     port: 5174,
+    host: true, // 允许外部访问并显示IP地址
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

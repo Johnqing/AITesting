@@ -12,6 +12,7 @@ export interface PRDRecord {
   version: string;
   status: string;
   author: string | null;
+  appId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,13 +27,23 @@ export class PRDService {
   /**
    * 创建或更新 PRD
    */
-  async upsertPRD(prd: PRDDocument): Promise<PRDRecord> {
+  async upsertPRD(prd: PRDDocument, appId?: string): Promise<PRDRecord> {
     const prdId = prd.prdId || `PRD-${Date.now()}`;
+
+    // 如果提供了appId（字符串形式的app_id），需要转换为UUID
+    let appIdUuid: string | null = null;
+    if (appId) {
+      const { applicationService } = await import('./applicationService.js');
+      const app = await applicationService.getApplicationByAppId(appId);
+      if (app) {
+        appIdUuid = app.id;
+      }
+    }
 
     const result = await queryOne<any>(
       `INSERT INTO prds (
-        prd_id, title, description, content, version, status, author
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        prd_id, title, description, content, version, status, author, app_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (prd_id) DO UPDATE SET
         title = EXCLUDED.title,
         description = EXCLUDED.description,
@@ -40,6 +51,7 @@ export class PRDService {
         version = EXCLUDED.version,
         status = EXCLUDED.status,
         author = EXCLUDED.author,
+        app_id = EXCLUDED.app_id,
         updated_at = CURRENT_TIMESTAMP
       RETURNING 
         id,
@@ -50,6 +62,7 @@ export class PRDService {
         version,
         status,
         author,
+        app_id as "appId",
         created_at as "createdAt",
         updated_at as "updatedAt"`,
       [
@@ -60,6 +73,7 @@ export class PRDService {
         prd.version || '1.0.0',
         prd.status || 'draft',
         prd.author || null,
+        appIdUuid
       ]
     );
 
@@ -86,21 +100,41 @@ export class PRDService {
     
     const result = await queryOne<any>(
       `SELECT 
-        id,
-        prd_id as "prdId",
-        title,
-        description,
-        content,
-        version,
-        status,
-        author,
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM prds WHERE prd_id = $1`,
+        p.id,
+        p.prd_id as "prdId",
+        p.title,
+        p.description,
+        p.content,
+        p.version,
+        p.status,
+        p.author,
+        p.app_id as "appId",
+        a.app_id as "appAppId",
+        a.name as "appName",
+        a.app_type as "appType",
+        p.created_at as "createdAt",
+        p.updated_at as "updatedAt"
+      FROM prds p
+      LEFT JOIN applications a ON p.app_id = a.id
+      WHERE p.prd_id = $1`,
       [prdId]
     );
 
-    return (result as PRDRecord) || null;
+    if (!result) {
+      return null;
+    }
+
+    // 将应用信息合并到appInfo字段（使用appAppId作为应用标识）
+    const { appAppId, appName, appType, ...rest } = result;
+    return {
+      ...rest,
+      appInfo: appAppId ? {
+        id: result.appId,
+        appId: appAppId,
+        name: appName,
+        appType: appType
+      } : null
+    } as any;
   }
 
   /**
@@ -132,17 +166,62 @@ export class PRDService {
   async getAllPRDs(): Promise<PRDRecord[]> {
     const results = await query<any>(
       `SELECT 
-        id,
-        prd_id as "prdId",
-        title,
-        description,
-        content,
-        version,
-        status,
-        author,
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM prds ORDER BY created_at DESC`
+        p.id,
+        p.prd_id as "prdId",
+        p.title,
+        p.description,
+        p.content,
+        p.version,
+        p.status,
+        p.author,
+        p.app_id as "appId",
+        a.app_id as "appAppId",
+        a.name as "appName",
+        a.app_type as "appType",
+        p.created_at as "createdAt",
+        p.updated_at as "updatedAt"
+      FROM prds p
+      LEFT JOIN applications a ON p.app_id = a.id
+      ORDER BY p.created_at DESC`
+    );
+
+    // 将应用信息合并到appInfo字段（使用appAppId作为应用标识）
+    return results.map((r: any) => {
+      const { appAppId, appName, appType, ...rest } = r;
+      return {
+        ...rest,
+        appInfo: appAppId ? {
+          id: r.appId,
+          appId: appAppId,
+          name: appName,
+          appType: appType
+        } : null
+      };
+    }) as any[];
+  }
+
+  /**
+   * 根据应用ID获取PRD列表
+   */
+  async getPRDsByAppId(appId: string): Promise<PRDRecord[]> {
+    const results = await query<any>(
+      `SELECT 
+        p.id,
+        p.prd_id as "prdId",
+        p.title,
+        p.description,
+        p.content,
+        p.version,
+        p.status,
+        p.author,
+        p.app_id as "appId",
+        p.created_at as "createdAt",
+        p.updated_at as "updatedAt"
+      FROM prds p
+      INNER JOIN applications a ON p.app_id = a.id
+      WHERE a.app_id = $1
+      ORDER BY p.created_at DESC`,
+      [appId]
     );
 
     return results as PRDRecord[];
@@ -303,12 +382,12 @@ export class PRDService {
   /**
    * 从内容解析并保存 PRD
    */
-  async parseAndSavePRDFromContent(content: string, prdId?: string): Promise<PRDRecord> {
+  async parseAndSavePRDFromContent(content: string, prdId?: string, appId?: string): Promise<PRDRecord> {
     const prd = await this.parser.parseContent(content);
     if (prdId) {
       prd.prdId = prdId;
     }
-    return await this.upsertPRD(prd);
+    return await this.upsertPRD(prd, appId);
   }
 }
 

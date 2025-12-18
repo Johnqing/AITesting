@@ -21,6 +21,12 @@
             <el-tag :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="应用分类" width="150">
+          <template #default="{ row }">
+            <el-tag v-if="row.appInfo" type="info">{{ row.appInfo.name }}</el-tag>
+            <span v-else style="color: #909399">未分类</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="author" label="作者" width="120" />
         <el-table-column label="生成的用例数" width="120">
           <template #default="{ row }">
@@ -92,6 +98,18 @@
               <el-input v-model="formData.author" placeholder="请输入作者" />
             </el-form-item>
           </el-col>
+          <el-col :span="12">
+            <el-form-item label="应用分类" prop="appId">
+              <el-select v-model="formData.appId" placeholder="请选择应用分类" filterable clearable style="width: 100%">
+                <el-option
+                  v-for="app in applications"
+                  :key="app.id"
+                  :label="app.name"
+                  :value="app.appId"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
         </el-row>
         <el-form-item label="描述" prop="description">
           <el-input
@@ -129,6 +147,10 @@
         <el-descriptions-item label="版本">{{ currentPRD.version }}</el-descriptions-item>
         <el-descriptions-item label="状态">
           <el-tag :type="getStatusType(currentPRD.status)">{{ getStatusLabel(currentPRD.status) }}</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="应用分类">
+          <el-tag v-if="currentPRD.appInfo" type="info">{{ currentPRD.appInfo.name }}</el-tag>
+          <span v-else style="color: #909399">未分类</span>
         </el-descriptions-item>
         <el-descriptions-item label="作者">{{ currentPRD.author || '-' }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ formatTime(currentPRD.createdAt) }}</el-descriptions-item>
@@ -224,6 +246,7 @@ import {
   generateTestCasesFromPRD,
   getPRDGeneratedTestCases,
   exportPRDAsMarkdownFile,
+  getAllApplications,
 } from '@/api'
 import { renderMarkdown } from '@/utils/markdown'
 
@@ -241,6 +264,7 @@ const isEdit = ref(false)
 const currentPRD = ref<any>(null)
 const generatedTestCases = ref<any[]>([])
 const generatedCaseCounts = ref<Record<string, number>>({})
+const applications = ref<any[]>([])
 
 const generateOptions = ref({
   saveToDatabase: true,
@@ -254,6 +278,7 @@ const formData = ref({
   version: '1.0.0',
   status: 'draft',
   author: '',
+  appId: '',
 })
 
 const formRules = {
@@ -336,6 +361,7 @@ const resetForm = () => {
     version: '1.0.0',
     status: 'draft',
     author: '',
+    appId: '',
   }
 }
 
@@ -355,6 +381,7 @@ const handleEdit = (row: any) => {
     version: row.version || '1.0.0',
     status: row.status || 'draft',
     author: row.author || '',
+    appId: row.appInfo?.appId || '',
   }
   dialogVisible.value = true
 }
@@ -385,12 +412,15 @@ const handleSubmit = async () => {
       if (!isEdit.value) {
         delete submitData.prdId
       }
+      // appId需要单独传递，因为后端期望的是appId（字符串形式的app_id）
+      const appId = submitData.appId || undefined
+      delete submitData.appId
 
       if (isEdit.value) {
-        await updatePRD(formData.value.prdId, submitData)
+        await updatePRD(formData.value.prdId, { ...submitData, appId })
         ElMessage.success('更新成功')
       } else {
-        await createPRD(submitData)
+        await createPRD({ ...submitData, appId })
         ElMessage.success('创建成功')
       }
 
@@ -466,7 +496,19 @@ const handleViewTestCases = () => {
   router.push('/test-cases')
 }
 
+const loadApplications = async () => {
+  try {
+    const response = await getAllApplications()
+    if (response.success) {
+      applications.value = response.data || []
+    }
+  } catch (error: any) {
+    console.error('Failed to load applications:', error)
+  }
+}
+
 onMounted(() => {
+  loadApplications()
   loadPRDs()
 })
 </script>

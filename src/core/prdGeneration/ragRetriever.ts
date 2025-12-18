@@ -39,22 +39,27 @@ export class RAGRetriever {
      */
     async retrieveRelevantPRDs(
         schema: PRDSchemaData,
-        limit: number = this.maxRetrievedDocs
+        limit: number = this.maxRetrievedDocs,
+        appId?: string
     ): Promise<RetrievedContext[]> {
         const startTime = Date.now();
         logger.start('retrieveRelevantPRDs', {
-            functionalRequirementsCount: schema.functionalRequirements?.length || 0
+            functionalRequirementsCount: schema.functionalRequirements?.length || 0,
+            appId: appId || undefined
         });
 
         try {
             logger.info('Starting RAG retrieval', {
                 limit,
+                appId: appId || undefined,
                 schemaFunctionalRequirements: schema.functionalRequirements?.length || 0
             });
 
-            // 获取所有历史PRD
+            // 获取历史PRD（如果指定了appId，只获取该应用的PRD）
             const dbQueryStartTime = Date.now();
-            const allPRDs = await prdService.getAllPRDs();
+            const allPRDs = appId
+                ? await prdService.getPRDsByAppId(appId)
+                : await prdService.getAllPRDs();
             const dbQueryDuration = Date.now() - dbQueryStartTime;
 
             logger.info('Historical PRDs retrieved from database', {

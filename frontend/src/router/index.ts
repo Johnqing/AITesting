@@ -51,6 +51,11 @@ const routes: RouteRecordRaw[] = [
     path: '/prd-edit/:taskId',
     name: 'PRDEdit',
     component: () => import('@/views/PRDEdit.vue')
+  },
+  {
+    path: '/applications',
+    name: 'Applications',
+    component: () => import('@/views/Applications.vue')
   }
 ]
 
