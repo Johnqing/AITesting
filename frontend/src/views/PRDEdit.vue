@@ -3,7 +3,7 @@
     <el-card v-loading="loading">
       <template #header>
         <div class="card-header">
-          <span>PRD 编辑</span>
+          <span>需求说明 编辑</span>
           <div>
             <el-button size="small" @click="handleRefresh">刷新</el-button>
             <el-button size="small" @click="handleExportMarkdown">导出Markdown</el-button>
@@ -21,7 +21,7 @@
                 v-model="prdContent"
                 type="textarea"
                 :rows="30"
-                placeholder="PRD内容..."
+                placeholder="需求说明内容..."
                 class="prd-editor"
               />
             </el-tab-pane>
@@ -145,7 +145,7 @@ const handleExportMarkdown = async () => {
   }
 
   if (!prdContent.value || prdContent.value.trim() === '') {
-    ElMessage.warning('PRD内容为空，无法导出')
+    ElMessage.warning('需求说明内容为空，无法导出')
     return
   }
 
@@ -164,16 +164,16 @@ const handleSave = async () => {
   }
 
   if (!prdContent.value || prdContent.value.trim() === '') {
-    ElMessage.warning('PRD内容为空，无法保存')
+    ElMessage.warning('需求说明内容为空，无法保存')
     return
   }
 
   saving.value = true
   try {
     // 获取任务信息作为默认标题
-    const taskTitle = taskStatus.value?.title || '编辑的PRD'
+    const taskTitle = taskStatus.value?.title || '编辑的需求说明'
     
-    // 保存PRD，传递编辑后的内容
+    // 保存需求说明，传递编辑后的内容
     const result = await saveGeneratedPRD(taskId.value, {
       title: taskTitle,
       status: 'draft',
@@ -181,14 +181,14 @@ const handleSave = async () => {
     })
 
     if (result.success) {
-      ElMessage.success(`PRD保存成功！PRD ID: ${result.data.prdId}`)
+      ElMessage.success(`需求说明保存成功！需求说明 ID: ${result.data.prdId}`)
       // 刷新状态
       await loadStatus()
     } else {
       ElMessage.error(result.error || '保存失败')
     }
   } catch (error: any) {
-    ElMessage.error(error.message || '保存PRD失败')
+    ElMessage.error(error.message || '保存需求说明失败')
   } finally {
     saving.value = false
   }
@@ -269,10 +269,10 @@ const loadPRD = async () => {
     if (result.success && result.data) {
       prdContent.value = result.data.prdContent
     } else {
-      ElMessage.warning('PRD内容不存在')
+      ElMessage.warning('需求说明内容不存在')
     }
   } catch (error: any) {
-    ElMessage.error(error.message || '加载PRD失败')
+    ElMessage.error(error.message || '加载需求说明失败')
   } finally {
     loading.value = false
   }

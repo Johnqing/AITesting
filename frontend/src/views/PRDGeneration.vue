@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>PRD 自动生成</span>
+          <span>需求说明 自动生成</span>
           <el-button type="primary" @click="handleNewGeneration" v-if="!currentTaskId">
             <el-icon><Plus /></el-icon>
             新建生成任务
@@ -17,7 +17,7 @@
           <el-form-item label="应用分类" required>
             <el-select 
               v-model="requirementForm.appId" 
-              placeholder="请选择应用（用于检索历史PRD）"
+              placeholder="请选择应用（用于检索历史需求说明）"
               style="width: 100%"
               filterable
               :loading="applications.length === 0"
@@ -34,7 +34,7 @@
               </el-option>
             </el-select>
             <div style="font-size: 12px; color: #909399; margin-top: 5px">
-              选择应用后，系统将只检索该应用的历史PRD作为参考
+              选择应用后，系统将只检索该应用的历史需求说明作为参考
             </div>
             <div v-if="applications.length === 0" style="font-size: 12px; color: #e6a23c; margin-top: 5px">
               <el-link type="warning" href="/applications" target="_blank">前往创建应用分类</el-link>
@@ -66,7 +66,7 @@
           <el-steps :active="stepIndex" finish-status="success" align-center>
             <el-step title="需求澄清" :description="statusTexts.clarification" />
             <el-step title="Schema结构化" :description="statusTexts.schema" />
-            <el-step title="PRD生成" :description="statusTexts.generation" />
+            <el-step title="需求说明生成" :description="statusTexts.generation" />
           </el-steps>
           
           <div class="status-info" v-if="taskStatus">
@@ -118,11 +118,11 @@
           </div>
         </el-card>
 
-        <!-- PRD预览区域 -->
+        <!-- 需求说明预览区域 -->
         <el-card shadow="never" class="result-card" v-if="prdContent">
           <template #header>
             <div class="result-header">
-              <span>生成的 PRD</span>
+              <span>生成的需求说明</span>
               <div>
                 <el-button size="small" @click="handleExportMarkdown">导出Markdown</el-button>
                 <el-button size="small" @click="handleEditPRD">编辑</el-button>
@@ -140,7 +140,7 @@
 
         <!-- 加载中 -->
         <el-card shadow="never" v-if="taskStatus?.status === 'running' && !prdContent">
-          <el-result icon="loading" title="正在生成PRD，请稍候...">
+          <el-result icon="loading" title="正在生成需求说明，请稍候...">
             <template #sub-title>
               <p>当前步骤: {{ getStepLabel(taskStatus.currentStep) }}</p>
               <p>进度: {{ taskStatus.progress }}%</p>
@@ -313,7 +313,7 @@ const handleSendResponse = async () => {
       await loadStatus()
       
       if (result.data.isComplete) {
-        ElMessage.success('需求已完整，开始生成PRD')
+        ElMessage.success('需求已完整，开始生成需求说明')
         // 如果SSE未连接，启动SSE
         if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
           startSSE()
@@ -343,12 +343,12 @@ const handleEditPRD = () => {
 
 const handleExportMarkdown = async () => {
   if (!currentTaskId.value) {
-    ElMessage.warning('没有可导出的PRD')
+    ElMessage.warning('没有可导出的需求说明')
     return
   }
 
   if (!prdContent.value) {
-    ElMessage.warning('PRD内容为空，无法导出')
+    ElMessage.warning('需求说明内容为空，无法导出')
     return
   }
 
@@ -362,18 +362,18 @@ const handleExportMarkdown = async () => {
 
 const handleSavePRD = async () => {
   if (!currentTaskId.value) {
-    ElMessage.warning('没有可保存的PRD')
+    ElMessage.warning('没有可保存的需求说明')
     return
   }
 
   if (!prdContent.value) {
-    ElMessage.warning('PRD内容为空，无法保存')
+    ElMessage.warning('需求说明内容为空，无法保存')
     return
   }
 
   try {
     // 获取任务信息作为默认标题
-    const taskTitle = taskStatus.value?.title || requirementForm.value.title || '生成的PRD'
+    const taskTitle = taskStatus.value?.title || requirementForm.value.title || '生成的需求说明'
     
     const result = await saveGeneratedPRD(currentTaskId.value, {
       title: taskTitle,
@@ -381,14 +381,14 @@ const handleSavePRD = async () => {
     })
 
     if (result.success) {
-      ElMessage.success(`PRD保存成功！PRD ID: ${result.data.prdId}`)
-      // 可以跳转到PRD列表页面
+      ElMessage.success(`需求说明保存成功！需求说明 ID: ${result.data.prdId}`)
+      // 可以跳转到需求说明列表页面
       // router.push('/prds')
     } else {
       ElMessage.error(result.error || '保存失败')
     }
   } catch (error: any) {
-    ElMessage.error(error.message || '保存PRD失败')
+    ElMessage.error(error.message || '保存需求说明失败')
   }
 }
 
@@ -585,7 +585,7 @@ const getStepLabel = (step?: string) => {
   const map: Record<string, string> = {
     clarification: '需求澄清',
     schema: 'Schema结构化',
-    generation: 'PRD生成'
+    generation: '需求说明生成'
   }
   return step ? map[step] || step : '未知'
 }

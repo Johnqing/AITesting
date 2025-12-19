@@ -41,11 +41,11 @@
       </template>
       <el-menu-item index="/prd-generation">
         <el-icon><MagicStick /></el-icon>
-        <span>PRD自动生成</span>
+        <span>需求说明自动生成</span>
       </el-menu-item>
       <el-menu-item index="/prds">
         <el-icon><DocumentChecked /></el-icon>
-        <span>PRD管理</span>
+        <span>需求说明管理</span>
       </el-menu-item>
       <el-menu-item index="/applications">
         <el-icon><Grid /></el-icon>
@@ -79,7 +79,7 @@ const activeIndex = computed(() => {
     }
     return '/test-suites'
   }
-  // 如果路径是 /prd-edit/:taskId，返回PRD自动生成页面
+  // 如果路径是 /prd-edit/:taskId，返回需求说明自动生成页面
   if (route.path.startsWith('/prd-edit/')) {
     return '/prd-generation'
   }

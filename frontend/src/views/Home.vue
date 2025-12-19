@@ -48,7 +48,7 @@
                     <el-icon :size="40" color="#9C27B0">
                         <MagicStick />
                     </el-icon>
-                    <h3>PRD自动生成</h3>
+                    <h3>需求说明自动生成</h3>
                     <p>AI自动生成产品需求文档</p>
                 </el-card>
             </el-col>
@@ -57,8 +57,8 @@
                     <el-icon :size="40" color="#F56C6C">
                         <DocumentChecked />
                     </el-icon>
-                    <h3>PRD管理</h3>
-                    <p>从PRD自动生成测试用例</p>
+                    <h3>需求说明管理</h3>
+                    <p>从需求说明自动生成测试用例</p>
                 </el-card>
             </el-col>
         </el-row>

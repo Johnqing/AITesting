@@ -211,7 +211,7 @@ const handleSubmit = async () => {
 const handleDelete = async (row: any) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除应用"${row.name}"吗？删除后，该应用下的PRD将变为未分类状态。`,
+      `确定要删除应用"${row.name}"吗？删除后，该应用下的需求说明将变为未分类状态。`,
       '提示',
       {
         type: 'warning',

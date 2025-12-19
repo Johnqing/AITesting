@@ -3,17 +3,17 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>PRD 管理</span>
+          <span>需求说明 管理</span>
           <el-button type="primary" @click="handleAdd">
             <el-icon><Plus /></el-icon>
-            新增 PRD
+            新增需求说明
           </el-button>
         </div>
       </template>
 
-      <!-- PRD 列表 -->
+      <!-- 需求说明 列表 -->
       <el-table :data="prds" v-loading="loading" style="width: 100%">
-        <el-table-column prop="prdId" label="PRD ID" width="200" />
+        <el-table-column prop="prdId" label="需求说明 ID" width="200" />
         <el-table-column prop="title" label="标题" min-width="200" />
         <el-table-column prop="version" label="版本" width="100" />
         <el-table-column prop="status" label="状态" width="100">
@@ -65,13 +65,13 @@
       >
         <el-row :gutter="20">
           <el-col :span="12" v-if="isEdit">
-            <el-form-item label="PRD ID" prop="prdId">
-              <el-input v-model="formData.prdId" disabled placeholder="PRD ID不可编辑" />
+            <el-form-item label="需求说明 ID" prop="prdId">
+              <el-input v-model="formData.prdId" disabled placeholder="需求说明 ID不可编辑" />
             </el-form-item>
           </el-col>
           <el-col :span="isEdit ? 12 : 24">
             <el-form-item label="标题" prop="title">
-              <el-input v-model="formData.title" placeholder="请输入PRD标题" />
+              <el-input v-model="formData.title" placeholder="请输入需求说明标题" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -116,15 +116,15 @@
             v-model="formData.description"
             type="textarea"
             :rows="3"
-            placeholder="请输入PRD描述"
+            placeholder="请输入需求说明描述"
           />
         </el-form-item>
-        <el-form-item label="PRD 内容" prop="content">
+        <el-form-item label="需求说明 内容" prop="content">
           <el-input
             v-model="formData.content"
             type="textarea"
             :rows="15"
-            placeholder="请输入PRD内容（Markdown格式）"
+            placeholder="请输入需求说明内容（Markdown格式）"
           />
         </el-form-item>
       </el-form>
@@ -134,15 +134,15 @@
       </template>
     </el-dialog>
 
-    <!-- 查看 PRD 对话框 -->
+    <!-- 查看需求说明 对话框 -->
     <el-dialog
       v-model="viewDialogVisible"
-      title="PRD 详情"
+      title="需求说明 详情"
       width="90%"
       :close-on-click-modal="false"
     >
       <el-descriptions :column="2" border v-if="currentPRD">
-        <el-descriptions-item label="PRD ID">{{ currentPRD.prdId }}</el-descriptions-item>
+        <el-descriptions-item label="需求说明 ID">{{ currentPRD.prdId }}</el-descriptions-item>
         <el-descriptions-item label="标题">{{ currentPRD.title }}</el-descriptions-item>
         <el-descriptions-item label="版本">{{ currentPRD.version }}</el-descriptions-item>
         <el-descriptions-item label="状态">
@@ -184,7 +184,7 @@
       >
         <template #default>
           <div>
-            <p v-if="generating">正在使用 AI 分析 PRD 并生成测试用例，这可能需要一些时间，请稍候...</p>
+            <p v-if="generating">正在使用 AI 分析需求说明 并生成测试用例，这可能需要一些时间，请稍候...</p>
             <p v-else-if="generatedTestCases.length > 0">
               成功生成 {{ generatedTestCases.length }} 个测试用例！
             </p>
@@ -282,11 +282,11 @@ const formData = ref({
 })
 
 const formRules = {
-  title: [{ required: true, message: '请输入PRD标题', trigger: 'blur' }],
-  content: [{ required: true, message: '请输入PRD内容', trigger: 'blur' }],
+  title: [{ required: true, message: '请输入需求说明标题', trigger: 'blur' }],
+  content: [{ required: true, message: '请输入需求说明内容', trigger: 'blur' }],
 }
 
-const dialogTitle = computed(() => (isEdit.value ? '编辑 PRD' : '新增 PRD'))
+const dialogTitle = computed(() => (isEdit.value ? '编辑需求说明' : '新增需求说明'))
 
 const getStatusType = (status: string) => {
   const map: Record<string, string> = {
@@ -333,7 +333,7 @@ const loadPRDs = async () => {
     const response = await getAllPRDs()
     if (response.success) {
       prds.value = response.data || []
-      // 加载每个 PRD 生成的用例数量
+      // 加载每个需求说明 生成的用例数量
       for (const prd of prds.value) {
         try {
           const casesResponse = await getPRDGeneratedTestCases(prd.prdId)
@@ -341,7 +341,7 @@ const loadPRDs = async () => {
             generatedCaseCounts.value[prd.prdId] = casesResponse.data?.length || 0
           }
         } catch (error) {
-          console.error(`Failed to load test cases for PRD ${prd.prdId}:`, error)
+          console.error(`Failed to load test cases for 需求说明 ${prd.prdId}:`, error)
         }
       }
     }
@@ -436,7 +436,7 @@ const handleSubmit = async () => {
 
 const handleDelete = async (row: any) => {
   try {
-    await ElMessageBox.confirm('确定要删除该 PRD 吗？', '提示', {
+    await ElMessageBox.confirm('确定要删除该需求说明 吗？', '提示', {
       type: 'warning',
     })
     await deletePRD(row.prdId)
