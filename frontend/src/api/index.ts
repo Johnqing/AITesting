@@ -175,7 +175,7 @@ export const regenerateParagraph = (taskId: string, data: { sectionTitle: string
 // 应用管理接口
 export const getAllApplications = () => api.get('/applications')
 export const getApplicationByAppId = (appId: string) => api.get(`/applications/${appId}`)
-export const createApplication = (data: { appId: string; name: string; description?: string; appType?: string }) =>
+export const createApplication = (data: { appId?: string; name: string; description?: string; appType?: string }) =>
   api.post('/applications', data)
 export const updateApplication = (appId: string, data: { name?: string; description?: string; appType?: string }) =>
   api.put(`/applications/${appId}`, data)

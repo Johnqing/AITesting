@@ -2,6 +2,7 @@ import matter from 'gray-matter';
 import { TestCase, CaseFile } from '../../types/case.js';
 import { AIClient } from '../../adapters/ai/aiClient.js';
 import { createLogger } from '../../utils/logger.js';
+import { MARKDOWN_PARSER_SYSTEM_PROMPT } from '../../prompts/testCase/markdownParser.js';
 
 const logger = createLogger('MarkdownCaseParser');
 
@@ -140,7 +141,7 @@ ${markdown}`;
                 messages: [
                     {
                         role: 'system',
-                        content: '你是一个专业的测试用例解析专家。请准确解析测试用例文件，提取所有结构化信息。只返回 JSON 格式，不要包含其他说明文字。'
+                        content: MARKDOWN_PARSER_SYSTEM_PROMPT
                     },
                     {
                         role: 'user',

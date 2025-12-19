@@ -50,7 +50,10 @@
         label-width="100px"
       >
         <el-form-item label="应用ID" prop="appId" v-if="!isEdit">
-          <el-input v-model="formData.appId" placeholder="请输入应用ID（如：warm-warm）" />
+          <el-input v-model="formData.appId" placeholder="留空将自动生成（如：warm-warm）" />
+          <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+            留空将根据应用名称自动生成应用ID
+          </div>
         </el-form-item>
         <el-form-item v-else label="应用ID">
           <el-input v-model="formData.appId" disabled />
@@ -109,7 +112,7 @@ const formData = ref({
 })
 
 const formRules = {
-  appId: [{ required: true, message: '请输入应用ID', trigger: 'blur' }],
+  appId: [{ required: false, message: '请输入应用ID', trigger: 'blur' }],
   name: [{ required: true, message: '请输入应用名称', trigger: 'blur' }],
 }
 
@@ -187,7 +190,7 @@ const handleSubmit = async () => {
         ElMessage.success('更新成功')
       } else {
         await createApplication({
-          appId: formData.value.appId,
+          appId: formData.value.appId || undefined, // 空字符串转为undefined
           name: formData.value.name,
           description: formData.value.description,
           appType: formData.value.appType,

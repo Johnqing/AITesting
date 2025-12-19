@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { PRDSchemaData } from '../../types/prdGeneration.js';
 import { prdService, PRDRecord } from '../../db/services/prdService.js';
 import { createLogger } from '../../utils/logger.js';
+import { RAG_RETRIEVAL_SYSTEM_PROMPT, buildRAGRetrievalUserPrompt } from '../../prompts/ai/ragRetrieval.js';
 
 const logger = createLogger('RAGRetriever');
 
@@ -178,18 +179,11 @@ export class RAGRetriever {
                 messages: [
                     {
                         role: 'system',
-                        content: `你是一个PRD检索专家。请根据查询关键词，对给定的PRD列表进行相关性评分，返回最相关的PRD ID列表。
-
-请返回JSON格式，包含一个prdIds数组，按相关性从高到低排序。`
+                        content: RAG_RETRIEVAL_SYSTEM_PROMPT
                     },
                     {
                         role: 'user',
-                        content: `查询关键词：${queryKeywords}
-
-PRD列表：
-${JSON.stringify(prdSummaries, null, 2)}
-
-请返回最相关的${limit}个PRD的ID列表（按相关性排序）。`
+                        content: buildRAGRetrievalUserPrompt(queryKeywords, prdSummaries, limit)
                     }
                 ],
                 temperature: 0.3,
