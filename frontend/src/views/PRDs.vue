@@ -38,10 +38,14 @@
             {{ formatTime(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="380" fixed="right">
+        <el-table-column label="操作" width="480" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" @click="handleView(row)">查看</el-button>
             <el-button size="small" @click="handleExportMarkdown(row)">导出</el-button>
+            <el-button size="small" type="warning" @click="handleGeneratePRD(row)" :loading="generatingPRD === row.prdId">
+              <el-icon v-if="generatingPRD !== row.prdId"><Promotion /></el-icon>
+              生成PRD
+            </el-button>
             <el-button size="small" type="success" @click="handleGenerate(row)">生成用例</el-button>
             <el-button size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
@@ -169,6 +173,51 @@
       </template>
     </el-dialog>
 
+    <!-- 生成PRD对话框 -->
+    <el-dialog
+      v-model="generatePRDDialogVisible"
+      title="生成PRD文档"
+      width="90%"
+      :close-on-click-modal="false"
+      :close-on-press-escape="!generatingPRD"
+    >
+      <el-alert
+        :type="generatedPRDContent ? 'success' : 'info'"
+        :closable="false"
+        style="margin-bottom: 20px"
+      >
+        <template #default>
+          <div>
+            <p v-if="generatingPRD">正在使用 AI 分析需求说明并生成PRD文档，这可能需要一些时间，请稍候...</p>
+            <p v-else-if="generatedPRDContent">PRD文档生成成功！</p>
+            <p v-else>准备生成PRD文档...</p>
+          </div>
+        </template>
+      </el-alert>
+      
+      <div v-if="generatedPRDContent" class="prd-result-section">
+        <div class="action-bar">
+          <el-button @click="handleCopyPRD">复制内容</el-button>
+          <el-button @click="handleDownloadPRD">下载Markdown</el-button>
+          <el-button type="primary" @click="handleSaveGeneratedPRD">保存为新PRD</el-button>
+        </div>
+        <el-scrollbar height="600px" style="margin-top: 20px">
+          <div v-html="renderMarkdown(generatedPRDContent)" class="markdown-content"></div>
+        </el-scrollbar>
+      </div>
+      
+      <template #footer>
+        <el-button @click="generatePRDDialogVisible = false" :disabled="!!generatingPRD">关闭</el-button>
+        <el-button
+          v-if="!generatedPRDContent && !generatingPRD"
+          type="primary"
+          @click="handleConfirmGeneratePRD"
+        >
+          开始生成
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 生成测试用例对话框 -->
     <el-dialog
       v-model="generateDialogVisible"
@@ -237,7 +286,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Promotion } from '@element-plus/icons-vue'
 import {
   getAllPRDs,
   createPRD,
@@ -247,6 +296,8 @@ import {
   getPRDGeneratedTestCases,
   exportPRDAsMarkdownFile,
   getAllApplications,
+  generatePRDDirect,
+  saveDirectGeneratedPRD,
 } from '@/api'
 import { renderMarkdown } from '@/utils/markdown'
 
@@ -257,14 +308,18 @@ const prds = ref<any[]>([])
 const dialogVisible = ref(false)
 const viewDialogVisible = ref(false)
 const generateDialogVisible = ref(false)
+const generatePRDDialogVisible = ref(false)
 const submitting = ref(false)
 const generating = ref(false)
+const generatingPRD = ref<string | null>(null)
 const formRef = ref<any>(null)
 const isEdit = ref(false)
 const currentPRD = ref<any>(null)
 const generatedTestCases = ref<any[]>([])
 const generatedCaseCounts = ref<Record<string, number>>({})
 const applications = ref<any[]>([])
+const generatedPRDContent = ref('')
+const currentPRDForGeneration = ref<any>(null)
 
 const generateOptions = ref({
   saveToDatabase: true,
@@ -496,6 +551,106 @@ const handleViewTestCases = () => {
   router.push('/test-cases')
 }
 
+// 生成PRD相关函数
+const handleGeneratePRD = (row: any) => {
+  currentPRDForGeneration.value = row
+  generatedPRDContent.value = ''
+  generatePRDDialogVisible.value = true
+}
+
+const handleConfirmGeneratePRD = async () => {
+  if (!currentPRDForGeneration.value) return
+
+  const requirementText = currentPRDForGeneration.value.content || ''
+  if (!requirementText.trim()) {
+    ElMessage.warning('该需求说明内容为空，无法生成PRD')
+    return
+  }
+
+  generatingPRD.value = currentPRDForGeneration.value.prdId
+
+  try {
+    const result = await generatePRDDirect({
+      requirement: requirementText.trim()
+    })
+
+    generatedPRDContent.value = result.data.prdContent
+    ElMessage.success('PRD生成成功！')
+  } catch (error: any) {
+    ElMessage.error(error.message || '生成PRD失败')
+  } finally {
+    generatingPRD.value = null
+  }
+}
+
+const handleCopyPRD = async () => {
+  try {
+    await navigator.clipboard.writeText(generatedPRDContent.value)
+    ElMessage.success('内容已复制到剪贴板')
+  } catch (error) {
+    ElMessage.error('复制失败，请手动复制')
+  }
+}
+
+const handleDownloadPRD = () => {
+  const blob = new Blob([generatedPRDContent.value], { type: 'text/markdown;charset=utf-8' })
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  const title = currentPRDForGeneration.value?.title || 'PRD'
+  a.download = `${title}-生成的PRD.md`
+  document.body.appendChild(a)
+  a.click()
+  window.URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+  ElMessage.success('文件下载成功')
+}
+
+const handleSaveGeneratedPRD = async () => {
+  if (!generatedPRDContent.value) {
+    ElMessage.warning('没有可保存的PRD内容')
+    return
+  }
+
+  try {
+    // 提取标题
+    const titleMatch = generatedPRDContent.value.match(/^#\s+(.+)$/m)
+    const defaultTitle = titleMatch ? titleMatch[1].trim() : `${currentPRDForGeneration.value?.title || 'PRD'}-生成的PRD`
+
+    const { value: title } = await ElMessageBox.prompt('请输入PRD标题', '保存PRD', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputValue: defaultTitle,
+      inputValidator: (value) => {
+        if (!value || !value.trim()) {
+          return '标题不能为空'
+        }
+        return true
+      }
+    })
+
+    // 保存到direct_generated_prds表
+    await saveDirectGeneratedPRD({
+      sourcePrdId: currentPRDForGeneration.value?.prdId,
+      title: title.trim(),
+      description: `基于需求说明"${currentPRDForGeneration.value?.title}"生成的PRD文档`,
+      prdContent: generatedPRDContent.value,
+      requirementText: currentPRDForGeneration.value?.content || undefined,
+      version: '1.0.0',
+      status: 'draft',
+      author: currentPRDForGeneration.value?.author || undefined,
+      appId: currentPRDForGeneration.value?.appInfo?.appId || undefined
+    })
+
+    ElMessage.success('PRD已保存到生成记录表')
+    generatePRDDialogVisible.value = false
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '保存PRD失败')
+    }
+  }
+}
+
 const loadApplications = async () => {
   try {
     const response = await getAllApplications()
@@ -656,6 +811,18 @@ onMounted(() => {
   height: auto;
   border-radius: 4px;
   margin: 16px 0;
+}
+
+.prd-result-section {
+  margin-top: 20px;
+}
+
+.action-bar {
+  display: flex;
+  gap: 10px;
+  padding: 15px;
+  background: #f5f7fa;
+  border-radius: 4px;
 }
 </style>
 

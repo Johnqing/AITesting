@@ -205,3 +205,35 @@ export const exportPRDAsMarkdown = async (taskId: string) => {
   document.body.removeChild(a)
 }
 
+// 直接从需求说明生成PRD接口（不经过Schema步骤）
+export const generatePRDDirect = (data: { requirement: string }) =>
+  api.post('/prd/generate-direct', data)
+
+// 保存直接生成的PRD到单独的表
+export const saveDirectGeneratedPRD = (data: {
+  sourcePrdId?: string
+  title: string
+  description?: string
+  prdContent: string
+  requirementText?: string
+  version?: string
+  status?: string
+  author?: string
+  appId?: string
+}) => api.post('/prd/generate-direct/save', data)
+
+// 产品需求管理接口（direct_generated_prds表）
+export const getAllDirectGeneratedPRDs = () => api.get('/direct-generated-prds')
+export const getDirectGeneratedPRDById = (id: string) => api.get(`/direct-generated-prds/${id}`)
+export const getDirectGeneratedPRDsBySourcePrdId = (sourcePrdId: string) =>
+  api.get(`/direct-generated-prds/source/${sourcePrdId}`)
+export const updateDirectGeneratedPRD = (id: string, data: {
+  title?: string
+  description?: string
+  prdContent?: string
+  version?: string
+  status?: string
+  author?: string
+}) => api.put(`/direct-generated-prds/${id}`, data)
+export const deleteDirectGeneratedPRD = (id: string) => api.delete(`/direct-generated-prds/${id}`)
+

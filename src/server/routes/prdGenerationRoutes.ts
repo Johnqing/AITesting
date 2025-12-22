@@ -9,13 +9,17 @@ import {
   regenerateParagraph,
   streamConversation,
   saveGeneratedPRD,
-  exportPRDAsMarkdown
+  exportPRDAsMarkdown,
+  generatePRDDirect,
+  saveDirectGeneratedPRD
 } from '../controllers/prdGenerationController.js';
 
 const router = Router();
 
 // PRD生成相关路由
 router.post('/api/v1/prd/generate', startPRDGeneration);
+router.post('/api/v1/prd/generate-direct', generatePRDDirect); // 直接从需求说明生成PRD
+router.post('/api/v1/prd/generate-direct/save', saveDirectGeneratedPRD); // 保存直接生成的PRD到单独的表
 router.get('/api/v1/prd/generate/:taskId/status', getGenerationStatus);
 router.post('/api/v1/prd/generate/:taskId/continue', continueConversation);
 router.get('/api/v1/prd/generate/:taskId/messages', getMessages);

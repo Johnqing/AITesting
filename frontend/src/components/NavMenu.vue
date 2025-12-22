@@ -43,9 +43,17 @@
         <el-icon><MagicStick /></el-icon>
         <span>需求说明自动生成</span>
       </el-menu-item>
+      <el-menu-item index="/prd-generation-direct">
+        <el-icon><Promotion /></el-icon>
+        <span>需求说明直接生成（快速）</span>
+      </el-menu-item>
       <el-menu-item index="/prds">
         <el-icon><DocumentChecked /></el-icon>
         <span>需求说明管理</span>
+      </el-menu-item>
+      <el-menu-item index="/product-requirements">
+        <el-icon><Document /></el-icon>
+        <span>产品需求管理</span>
       </el-menu-item>
       <el-menu-item index="/applications">
         <el-icon><Grid /></el-icon>
@@ -67,7 +75,8 @@ import {
   DocumentChecked,
   FolderOpened,
   MagicStick,
-  Grid
+  Grid,
+  Promotion
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { PRDGenerationOrchestrator } from '../../core/prdGeneration/prdGenerationOrchestrator.js';
 import { prdGenerationService } from '../../db/services/prdGenerationService.js';
 import { PRDGenerationAgent } from '../../core/prdGeneration/prdGenerationAgent.js';
+import { RequirementToPrdAgent } from '../../core/requirementToPrd/requirementToPrdAgent.js';
+import { directGeneratedPrdService } from '../../db/services/directGeneratedPrdService.js';
 import { createLogger } from '../../utils/logger.js';
 import { prdService } from '../../db/services/prdService.js';
 import { PRDParser } from '../../core/parser/prdParser.js';
@@ -10,6 +12,7 @@ import { queryOne } from '../../db/config.js';
 const logger = createLogger('PRDGenerationController');
 const orchestrator = new PRDGenerationOrchestrator();
 const prdGenerationAgent = new PRDGenerationAgent();
+const requirementToPrdAgent = new RequirementToPrdAgent();
 
 /**
  * 启动PRD生成
@@ -827,6 +830,157 @@ export async function regenerateParagraph(req: Request, res: Response): Promise<
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : '段落重生成失败'
+    });
+  }
+}
+
+/**
+ * 直接从需求说明生成PRD（不经过Schema步骤）
+ * POST /api/v1/prd/generate-direct
+ */
+export async function generatePRDDirect(req: Request, res: Response): Promise<void> {
+  const startTime = Date.now();
+  logger.start('generatePRDDirect', {
+    requirementLength: req.body.requirement?.length || 0
+  });
+
+  try {
+    const { requirement } = req.body;
+
+    if (!requirement || typeof requirement !== 'string' || requirement.trim() === '') {
+      logger.warn('Invalid request: requirement is empty');
+      res.status(400).json({
+        success: false,
+        error: '需求文本不能为空'
+      });
+      return;
+    }
+
+    logger.info('Starting direct PRD generation from requirement', {
+      requirementLength: requirement.length
+    });
+
+    const prdContent = await requirementToPrdAgent.generatePRDFromRequirement(requirement.trim());
+
+    const duration = Date.now() - startTime;
+    logger.info('Direct PRD generation completed successfully', {
+      prdContentLength: prdContent.length,
+      duration: `${duration}ms`
+    });
+    logger.end('generatePRDDirect', { success: true }, duration);
+
+    res.json({
+      success: true,
+      data: {
+        prdContent,
+        contentLength: prdContent.length
+      }
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.error('Error in direct PRD generation', error, {
+      duration: `${duration}ms`,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined
+    });
+    logger.end('generatePRDDirect', { success: false }, duration);
+
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'PRD生成失败'
+    });
+  }
+}
+
+/**
+ * 保存直接生成的PRD到direct_generated_prds表
+ * POST /api/v1/prd/generate-direct/save
+ */
+export async function saveDirectGeneratedPRD(req: Request, res: Response): Promise<void> {
+  const startTime = Date.now();
+  logger.start('saveDirectGeneratedPRD', {
+    hasPrdContent: !!req.body.prdContent,
+    hasTitle: !!req.body.title
+  });
+
+  try {
+    const {
+      sourcePrdId,
+      title,
+      description,
+      prdContent,
+      requirementText,
+      version,
+      status,
+      author,
+      appId
+    } = req.body;
+
+    if (!prdContent || typeof prdContent !== 'string' || prdContent.trim() === '') {
+      logger.warn('Invalid request: prdContent is empty');
+      res.status(400).json({
+        success: false,
+        error: 'PRD内容不能为空'
+      });
+      return;
+    }
+
+    if (!title || typeof title !== 'string' || title.trim() === '') {
+      logger.warn('Invalid request: title is empty');
+      res.status(400).json({
+        success: false,
+        error: 'PRD标题不能为空'
+      });
+      return;
+    }
+
+    logger.info('Saving direct generated PRD', {
+      title,
+      hasSourcePrdId: !!sourcePrdId,
+      hasAppId: !!appId,
+      prdContentLength: prdContent.length
+    });
+
+    const result = await directGeneratedPrdService.createDirectGeneratedPRD({
+      sourcePrdId: sourcePrdId || undefined,
+      title: title.trim(),
+      description: description || undefined,
+      prdContent: prdContent.trim(),
+      requirementText: requirementText || undefined,
+      version: version || '1.0.0',
+      status: status || 'draft',
+      author: author || undefined,
+      appId: appId || undefined
+    });
+
+    const duration = Date.now() - startTime;
+    logger.info('Direct generated PRD saved successfully', {
+      id: result.id,
+      title: result.title,
+      duration: `${duration}ms`
+    });
+    logger.end('saveDirectGeneratedPRD', { id: result.id }, duration);
+
+    res.json({
+      success: true,
+      data: {
+        id: result.id,
+        title: result.title,
+        message: 'PRD保存成功'
+      }
+    });
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    logger.error('Error saving direct generated PRD', error, {
+      duration: `${duration}ms`,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined
+    });
+    logger.end('saveDirectGeneratedPRD', { success: false }, duration);
+
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : '保存PRD失败'
     });
   }
 }

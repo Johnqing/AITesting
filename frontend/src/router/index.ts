@@ -43,9 +43,19 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/PRDs.vue')
   },
   {
+    path: '/product-requirements',
+    name: 'ProductRequirements',
+    component: () => import('@/views/ProductRequirements.vue')
+  },
+  {
     path: '/prd-generation',
     name: 'PRDGeneration',
     component: () => import('@/views/PRDGeneration.vue')
+  },
+  {
+    path: '/prd-generation-direct',
+    name: 'PRDGenerationDirect',
+    component: () => import('@/views/PRDGenerationDirect.vue')
   },
   {
     path: '/prd-edit/:taskId',
